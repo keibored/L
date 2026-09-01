@@ -1,218 +1,141 @@
 .overlay-backdrop {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(8, 5, 4, 0);
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 4, 4, 0);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.5s ease, background 0.5s ease;
-  z-index: 20;
+  transition: opacity 0.42s ease, background 0.42s ease;
 }
 
 .overlay-backdrop--open {
-  background: rgba(8, 5, 4, 0.58);
+  background: rgba(8, 4, 4, 0.72);
   opacity: 1;
   pointer-events: auto;
 }
 
 .overlay-card {
   position: relative;
-  width: min(90%, 440px);
-  max-height: 78%;
-  overflow-y: auto;
-  background: linear-gradient(180deg, #f4ece1 0%, #ece0d0 100%);
-  color: #3c2a20;
+  width: min(90vw, 500px);
+  overflow: hidden;
+  padding: 48px 44px 42px;
+  border: 1px solid rgba(225, 180, 127, 0.38);
   border-radius: 3px;
-  padding: 36px 32px 32px;
-  box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 0 60px rgba(255, 178, 122, 0.08);
-  transform: translateY(0);
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  background:
+    linear-gradient(rgba(228, 195, 158, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(228, 195, 158, 0.035) 1px, transparent 1px),
+    linear-gradient(150deg, rgba(82, 36, 31, 0.98), rgba(25, 14, 12, 0.99));
+  background-size: 34px 34px, 34px 34px, auto;
+  color: #f2e4d2;
+  box-shadow: 0 34px 100px rgba(0, 0, 0, 0.66), inset 0 0 65px rgba(0, 0, 0, 0.26);
+  transform: translateY(14px) scale(0.975);
+  transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.overlay-backdrop--open .overlay-card {
+  transform: translateY(0) scale(1);
 }
 
 .overlay-card::before {
   content: "";
   position: absolute;
-  inset: 8px;
-  border: 1px solid rgba(90, 60, 40, 0.16);
+  inset: 9px;
+  border: 1px solid rgba(231, 203, 171, 0.12);
   pointer-events: none;
-}
-
-.overlay-backdrop:not(.overlay-backdrop--open) .overlay-card {
-  transform: translateY(14px) scale(0.97);
 }
 
 .overlay-close {
   position: absolute;
-  top: 14px;
-  right: 16px;
-  width: 30px;
-  height: 30px;
-  border: none;
-  background: rgba(60, 42, 32, 0.08);
-  color: #5a4030;
+  top: 16px;
+  right: 18px;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(233, 208, 177, 0.24);
+  border-radius: 50%;
+  background: rgba(16, 9, 8, 0.32);
+  color: #ead8c2;
   font-size: 20px;
   line-height: 1;
-  border-radius: 50%;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.overlay-close:hover {
-  background: rgba(60, 42, 32, 0.18);
+.overlay-close:hover,
+.overlay-close:focus-visible {
+  border-color: rgba(244, 213, 173, 0.72);
+  background: rgba(111, 57, 43, 0.42);
+}
+
+.overlay-close:focus-visible {
+  outline: 2px solid #e3b77f;
+  outline-offset: 3px;
+}
+
+.overlay-kicker {
+  margin: 0 0 18px;
+  color: rgba(220, 178, 127, 0.68);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
 }
 
 .overlay-title {
-  margin: 0 0 4px;
-  font-size: 1.3rem;
-  letter-spacing: 0.04em;
-  color: #5b3440;
-  font-weight: 600;
+  margin: 0;
+  color: #f3e2cf;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.5rem, 4vw, 2.15rem);
+  font-weight: 400;
+  letter-spacing: 0.18em;
 }
 
 .overlay-sub {
-  margin: 0 0 20px;
-  font-size: 0.82rem;
-  color: #7a6152;
-  font-style: italic;
-}
-
-.memories-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.memories-tile {
-  aspect-ratio: 4 / 3;
-  border-radius: 4px;
-  display: flex;
-  align-items: flex-end;
-  padding: 8px;
-  font-size: 0.72rem;
-  color: rgba(40, 24, 18, 0.75);
-  box-shadow: inset 0 -30px 30px -20px rgba(0, 0, 0, 0.25);
-}
-
-.photostrip-frame {
-  background: #fff;
-  padding: 10px;
-  width: 140px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
-}
-
-.photostrip-tile {
-  aspect-ratio: 5 / 3;
-  border-radius: 2px;
-}
-
-.letter-paper {
+  margin: 14px 0 30px;
+  color: rgba(238, 219, 195, 0.72);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 0.95rem;
-  line-height: 1.7;
-  color: #4a3528;
-  white-space: pre-line;
-}
-
-.letter-signoff {
-  margin-top: 16px;
+  font-size: 0.96rem;
   font-style: italic;
+  line-height: 1.65;
 }
 
-.song-player {
+.overlay-placeholder {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  color: rgba(224, 191, 150, 0.48);
+  font-size: 0.56rem;
+  letter-spacing: 0.24em;
+  white-space: nowrap;
 }
 
-.song-play {
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: none;
-  background: #5b3440;
-  color: #f4ece1;
-  font-size: 1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-}
-
-.song-play:hover {
-  transform: scale(1.06);
-}
-
-.song-name {
-  margin: 0;
-  font-weight: 600;
-  color: #4a3528;
-}
-
-.song-artist {
-  margin: 2px 0 10px;
-  font-size: 0.78rem;
-  color: #7a6152;
-}
-
-.song-progress {
+.overlay-placeholder i {
   width: 100%;
-  height: 3px;
-  background: rgba(60, 42, 32, 0.15);
-  border-radius: 2px;
-  overflow: hidden;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(215, 167, 112, 0.36));
 }
 
-.song-progress-fill {
-  height: 100%;
-  width: 12%;
-  background: #a15c68;
+.overlay-placeholder i:last-child {
+  transform: scaleX(-1);
 }
 
-.song-progress-fill--playing {
-  animation: song-progress-run 18s linear forwards;
-}
-
-@keyframes song-progress-run {
-  from {
-    width: 12%;
+@media (max-width: 560px) {
+  .overlay-card {
+    padding: 44px 28px 34px;
   }
-  to {
-    width: 100%;
+
+  .overlay-placeholder {
+    gap: 9px;
+    font-size: 0.48rem;
+    letter-spacing: 0.16em;
   }
 }
 
-.surprise-button {
-  margin-top: 8px;
-  padding: 10px 22px;
-  border-radius: 999px;
-  border: 1px solid rgba(90, 40, 48, 0.4);
-  background: transparent;
-  color: #7a1f28;
-  font-size: 0.85rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.surprise-button:hover {
-  background: #7a1f28;
-  color: #f4ece1;
-}
-
-.surprise-reveal {
-  font-style: normal;
-  color: #4a3528;
-  line-height: 1.6;
+@media (prefers-reduced-motion: reduce) {
+  .overlay-backdrop,
+  .overlay-card {
+    transition-duration: 0.18s;
+  }
 }

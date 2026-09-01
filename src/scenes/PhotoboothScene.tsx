@@ -1,169 +1,198 @@
-import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { ACESFilmicToneMapping, MathUtils, type Group } from "three";
-import { ContactShadows, Sparkles } from "@react-three/drei";
+import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Preload } from "@react-three/drei";
+import { ACESFilmicToneMapping, Color, Fog } from "three";
 import { EffectsPipeline } from "../components/Photobooth/EffectsPipeline";
 import { useCurtainAnimation } from "../hooks/useCurtainAnimation";
 import { useEntrancePreferences } from "../hooks/useEntrancePreferences";
+import { useTransitionDirector } from "../hooks/useTransitionDirector";
 import { useExperience } from "../state/ExperienceContext";
-import { BoothBody } from "../components/Photobooth/BoothBody";
-import { BoothMarquee } from "../components/Photobooth/BoothMarquee";
-import { Curtains } from "../components/Photobooth/Curtains";
-import { BoothInterior } from "../components/Photobooth/BoothInterior";
-import { InteriorObjects } from "../components/Photobooth/interior/InteriorObjects";
-import { InteriorDecor } from "../components/Photobooth/interior/InteriorDecor";
-import { ExteriorEnvironment } from "../components/Photobooth/ExteriorEnvironment";
-import { Lighting } from "../components/Photobooth/Lighting";
 import { CameraRig } from "../components/Photobooth/CameraRig";
 import { EXTERIOR } from "../components/Photobooth/cameraWaypoints";
-import { ContentOverlay } from "../components/ContentOverlay/ContentOverlay";
-import { AtmosphericOverlay } from "../components/Photobooth/AtmosphericOverlay";
-import { EntranceInterface } from "../components/Photobooth/EntranceInterface";
 import { ENTRANCE_TUNING } from "../components/Photobooth/entranceConfig";
+import { InterfaceOverlay } from "../components/Photobooth/InterfaceOverlay";
+import { ArchivePortal } from "../components/Photobooth/ArchivePortal";
+import { InteriorArchiveHub } from "../components/Photobooth/interior/hub/InteriorArchiveHub";
+import { useArchiveImagePreload } from "../components/Photobooth/interior/hub/archiveAsset";
+import { ExteriorPhotoboothScene } from "./ExteriorPhotoboothScene";
 
-function BoothStage({ children, reducedMotion }: { children: ReactNode; reducedMotion: boolean }) {
-  const groupRef = useRef<Group>(null);
-  const { phase } = useExperience();
+const EXTERIOR_BACKGROUND = new Color("#080706");
+const INTERIOR_BACKGROUND = new Color("#160b09");
+const EXTERIOR_FOG = new Color("#100b09");
+const INTERIOR_FOG = new Color("#25120f");
+
+function smoothstep(value: number) {
+  const clamped = Math.min(1, Math.max(0, value));
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
+function ContinuousAtmosphere({ interiorBlend }: { interiorBlend: number }) {
+  const { scene } = useThree();
+  const background = useState(() => new Color())[0];
+  const fogColor = useState(() => new Color())[0];
 
   useFrame(() => {
-    if (!groupRef.current) return;
-    const exterior = phase === "loading" || phase === "exterior";
-    const target = exterior ? ENTRANCE_TUNING.boothScale : 1;
-    const current = groupRef.current.scale.x;
-    const next = reducedMotion ? target : MathUtils.lerp(current, target, 0.045);
-    groupRef.current.scale.setScalar(next);
+    background.lerpColors(EXTERIOR_BACKGROUND, INTERIOR_BACKGROUND, interiorBlend);
+    fogColor.lerpColors(EXTERIOR_FOG, INTERIOR_FOG, interiorBlend);
+    if (scene.background instanceof Color) scene.background.copy(background);
+    if (scene.fog instanceof Fog) scene.fog.color.copy(fogColor);
   });
 
-  return <group ref={groupRef} scale={ENTRANCE_TUNING.boothScale}>{children}</group>;
+  return null;
 }
+
 export function PhotoboothScene() {
   const { reducedMotion, coarsePointer } = useEntrancePreferences();
   const {
     progress,
     dragging,
-    ready: curtainOpen,
     handlePointerDown,
     handleClick,
-    openCurtain,
+    setCurtainProgress,
   } = useCurtainAnimation(reducedMotion);
-  const { phase, beginEntering, arriveInterior } = useExperience();
-  const [isEntering, setIsEntering] = useState(false);
+  const {
+    phase,
+    focusedObject,
+    beginEntering,
+    arriveInside,
+    openContent,
+    finishRecenter,
+    beginExiting,
+    finishExiting,
+  } = useExperience();
   const [engaged, setEngaged] = useState(false);
-  const hasTriggeredEntry = useRef(false);
-  const entryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const archiveReady = useArchiveImagePreload();
+  const {
+    sceneMode,
+    entryProgress,
+    exitProgress,
+    enterBooth,
+    exitBooth,
+  } = useTransitionDirector({
+    phase,
+    reducedMotion,
+    beginEntering,
+    arriveInside,
+    beginExiting,
+    finishExiting,
+    curtainProgress: progress,
+    setCurtainProgress,
+  });
 
-  const startEntry = useCallback(() => {
-    if (hasTriggeredEntry.current || phase !== "exterior") return;
-    hasTriggeredEntry.current = true;
-    setIsEntering(true);
+  const requestEntry = useCallback(() => {
+    if (!archiveReady) return;
     setEngaged(false);
-    document.body.style.cursor = "auto";
-    beginEntering();
-    openCurtain(reducedMotion ? 0.24 : 1.28);
-
-    entryTimer.current = setTimeout(
-      arriveInterior,
-      reducedMotion ? 340 : ENTRANCE_TUNING.enterDuration * 1000,
-    );
-  }, [arriveInterior, beginEntering, openCurtain, phase, reducedMotion]);
+    enterBooth();
+  }, [archiveReady, enterBooth]);
 
   useEffect(() => {
-    if (curtainOpen) startEntry();
-  }, [curtainOpen, startEntry]);
-
-  useEffect(() => () => {
-    if (entryTimer.current) clearTimeout(entryTimer.current);
-    document.body.style.cursor = "auto";
-  }, []);
+    if (phase !== "focusing") return;
+    const timer = setTimeout(
+      focusedObject ? openContent : finishRecenter,
+      reducedMotion ? 180 : focusedObject ? 720 : 680,
+    );
+    return () => clearTimeout(timer);
+  }, [finishRecenter, focusedObject, openContent, phase, reducedMotion]);
 
   const handleCurtainClick = useCallback(() => {
-    if (handleClick()) startEntry();
-  }, [handleClick, startEntry]);
+    if (handleClick()) requestEntry();
+  }, [handleClick, requestEntry]);
 
-  const interiorLit = phase === "interior" || phase === "focused" || phase === "entering";
-  const interiorInteractive = phase === "interior";
-  const entranceVisible = phase === "exterior" || phase === "entering";
-  const curtainInteractive = phase === "exterior" && !isEntering;
   const revealing = phase === "loading";
+  const interiorBlend = phase === "entering"
+    ? smoothstep(entryProgress)
+    : phase === "exiting"
+      ? 1 - smoothstep(exitProgress)
+      : phase === "inside" || phase === "focusing" || phase === "content"
+        ? 1
+        : 0;
+  const archiveHtmlOpacity = phase === "entering"
+    ? smoothstep((entryProgress - (reducedMotion ? 0.46 : 0.75)) / (reducedMotion ? 0.08 : 0.09))
+    : phase === "exiting"
+      ? 1 - smoothstep((exitProgress - (reducedMotion ? 0.08 : 0.04)) / (reducedMotion ? 0.1 : 0.12))
+      : phase === "inside" || phase === "focusing" || phase === "content"
+        ? 1
+        : 0;
+  const liveCurtainOpacity = phase === "entering"
+    ? 1 - smoothstep((entryProgress - 0.6) / 0.12)
+    : phase === "exiting"
+      ? smoothstep((exitProgress - 0.5) / 0.1)
+      : phase === "inside" || phase === "focusing" || phase === "content"
+        ? 0
+        : 1;
   const entranceStyle = {
     "--entry-grain-opacity": ENTRANCE_TUNING.grainOpacity,
     "--entry-reveal-duration": `${ENTRANCE_TUNING.revealDuration}s`,
-    "--entry-transition-duration": `${ENTRANCE_TUNING.enterDuration}s`,
+    "--entry-transition-duration": "2.2s",
   } as CSSProperties;
 
   return (
-    <div
-      className={`canvas-shell${phase === "entering" ? " canvas-shell--entering" : ""}`}
-      style={entranceStyle}
-    >
+    <div className={`canvas-shell canvas-shell--${phase}`} style={entranceStyle}>
       <Canvas
         shadows
-        dpr={[1, 1.75]}
+        dpr={[1, 1.65]}
         performance={{ min: 0.55 }}
-        camera={{ position: EXTERIOR.position, fov: EXTERIOR.fov, near: 0.05, far: 20 }}
-        gl={{ toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.08, antialias: true }}
+        camera={{ position: EXTERIOR.position, fov: EXTERIOR.fov, near: 0.05, far: 24 }}
+        gl={{ toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.08, antialias: true, stencil: true }}
       >
         <color attach="background" args={["#080706"]} />
-        <fog attach="fog" args={["#100b09", 7, 16]} />
+        <fog attach="fog" args={["#100b09", 8, 18]} />
         <Suspense fallback={null}>
+          <ContinuousAtmosphere interiorBlend={interiorBlend} />
           <CameraRig
+            sceneMode={sceneMode}
+            entryProgress={entryProgress}
+            exitProgress={exitProgress}
             dragging={dragging}
             engaged={engaged}
             reducedMotion={reducedMotion}
             coarsePointer={coarsePointer}
           />
-          <ExteriorEnvironment revealing={revealing} reducedMotion={reducedMotion} />
-          <BoothStage reducedMotion={reducedMotion}>
-            <BoothBody />
-            <BoothMarquee />
-            <Curtains
-              progress={progress}
-              dragging={dragging}
-              interactive={curtainInteractive}
-              highlighted={engaged || isEntering}
-              reducedMotion={reducedMotion}
-              onPointerDown={handlePointerDown}
-              onClick={handleCurtainClick}
-              onEngagementChange={setEngaged}
-            />
-            <BoothInterior visible={progress > 0.05} />
-            <InteriorDecor visible={progress > 0.05} />
-            <InteriorObjects visible={progress > 0.05} interactive={interiorInteractive} />
-          </BoothStage>
-          <Lighting
-            active={interiorLit}
-            attention={engaged || isEntering}
-            revealing={revealing}
+
+          <ArchivePortal
+            phase={phase}
+            entryProgress={entryProgress}
+            exitProgress={exitProgress}
             reducedMotion={reducedMotion}
           />
-          <ContactShadows
-            position={[0, -2.34, -0.18]}
-            opacity={0.72}
-            scale={8.5}
-            blur={2.8}
-            far={3.2}
-            color="#050302"
+
+          <ExteriorPhotoboothScene
+            visible={sceneMode === "exterior" || phase === "entering" || phase === "exiting"}
+            lightingStrength={1 - interiorBlend}
+            phase={phase}
+            progress={progress}
+            curtainOpacity={liveCurtainOpacity}
+            dragging={dragging}
+            engaged={engaged}
+            revealing={revealing}
+            reducedMotion={reducedMotion}
+            coarsePointer={coarsePointer}
+            curtainInteractive={phase === "outside"}
+            onPointerDown={handlePointerDown}
+            onCurtainClick={handleCurtainClick}
+            onEngagementChange={setEngaged}
           />
-          <Sparkles
-            count={coarsePointer ? 9 : interiorLit ? 16 : 22}
-            scale={[7, 5, 5]}
-            size={1.25}
-            speed={reducedMotion ? 0 : 0.1}
-            opacity={0.2}
-            color="#e7c6a8"
-          />
+          <Preload all />
         </Suspense>
         <EffectsPipeline />
       </Canvas>
 
-      <AtmosphericOverlay entering={phase === "entering"} visible={entranceVisible} />
-      <EntranceInterface
-        entering={phase === "entering"}
-        visible={entranceVisible}
-        onEnter={startEntry}
+      <InteriorArchiveHub
+        phase={phase}
+        opacity={archiveHtmlOpacity}
+        imageReady={archiveReady}
+        reducedMotion={reducedMotion}
+      />
+
+      <InterfaceOverlay
+        phase={phase}
+        sceneMode={sceneMode}
+        exitProgress={exitProgress}
+        archiveReady={archiveReady}
+        onEnter={requestEntry}
+        onExit={exitBooth}
         onEngagementChange={setEngaged}
       />
-      <ContentOverlay />
     </div>
   );
 }

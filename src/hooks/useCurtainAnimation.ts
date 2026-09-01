@@ -38,7 +38,7 @@ export function useCurtainAnimation(reducedMotion = false) {
     [applyProgress, reducedMotion],
   );
 
-  const openCurtain = useCallback((duration?: number) => animateTo(1, duration), [animateTo]);
+  const closeCurtain = useCallback((duration?: number) => animateTo(0, duration), [animateTo]);
 
   const handlePointerDown = useCallback((clientX: number) => {
     tweenRef.current?.kill();
@@ -75,9 +75,8 @@ export function useCurtainAnimation(reducedMotion = false) {
       suppressClickRef.current = false;
       return false;
     }
-    animateTo(progressRef.current > 0.5 ? 0 : 1);
     return true;
-  }, [animateTo]);
+  }, []);
 
   useEffect(() => {
     if (ready || dragging) return;
@@ -91,6 +90,7 @@ export function useCurtainAnimation(reducedMotion = false) {
     dragging,
     handlePointerDown,
     handleClick,
-    openCurtain,
+    closeCurtain,
+    setCurtainProgress: applyProgress,
   };
 }

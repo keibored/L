@@ -9,13 +9,14 @@ interface LightingProps {
   attention: boolean;
   revealing: boolean;
   reducedMotion: boolean;
+  strength?: number;
 }
 function smoothReveal(value: number, start: number, end: number) {
   const normalized = MathUtils.clamp((value - start) / (end - start), 0, 1);
   return normalized * normalized * (3 - 2 * normalized);
 }
 
-export function Lighting({ active, attention, revealing, reducedMotion }: LightingProps) {
+export function Lighting({ active, attention, revealing, reducedMotion, strength = 1 }: LightingProps) {
   const keyRef = useRef<SpotLight>(null);
   const fillRef = useRef<SpotLight>(null);
   const rimRef = useRef<PointLight>(null);
@@ -36,19 +37,19 @@ export function Lighting({ active, attention, revealing, reducedMotion }: Lighti
     const breathing = reducedMotion ? 1 : 1 + Math.sin(time * 0.72) * 0.022;
 
     if (keyRef.current) {
-      keyRef.current.intensity = ENTRANCE_TUNING.lighting.keyIntensity * reveal * flicker * hoverBoost;
+      keyRef.current.intensity = ENTRANCE_TUNING.lighting.keyIntensity * reveal * flicker * hoverBoost * strength;
     }
-    if (fillRef.current) fillRef.current.intensity = ENTRANCE_TUNING.lighting.fillIntensity * reveal;
-    if (rimRef.current) rimRef.current.intensity = ENTRANCE_TUNING.lighting.rimIntensity * reveal;
+    if (fillRef.current) fillRef.current.intensity = ENTRANCE_TUNING.lighting.fillIntensity * reveal * strength;
+    if (rimRef.current) rimRef.current.intensity = ENTRANCE_TUNING.lighting.rimIntensity * reveal * strength;
     if (ambientRef.current) {
-      ambientRef.current.intensity = ENTRANCE_TUNING.lighting.ambientIntensity * Math.max(reveal, 0.08);
+      ambientRef.current.intensity = ENTRANCE_TUNING.lighting.ambientIntensity * Math.max(reveal, 0.08) * strength;
     }
     if (glowRef.current) {
       const base = active ? 9 : ENTRANCE_TUNING.lighting.curtainGlowIntensity;
-      glowRef.current.intensity = base * reveal * breathing * hoverBoost;
+      glowRef.current.intensity = base * reveal * breathing * hoverBoost * strength;
     }
     if (leakRef.current) {
-      leakRef.current.intensity = (active ? 0.75 : attention ? 2.75 : 1.65) * Math.max(reveal, 0.15);
+      leakRef.current.intensity = (active ? 0.75 : attention ? 2.75 : 1.65) * Math.max(reveal, 0.15) * strength;
     }
   });
 

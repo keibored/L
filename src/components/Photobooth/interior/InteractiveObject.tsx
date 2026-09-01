@@ -4,10 +4,10 @@ import { Html } from "@react-three/drei";
 import type { Group } from "three";
 import { MathUtils } from "three";
 import { useExperience, type ObjectId } from "../../../state/ExperienceContext";
-import { OBJECT_LABELS } from "./interiorLayout";
+import { OBJECT_LABELS, type LegacyObjectId } from "./interiorLayout";
 
 interface InteractiveObjectProps {
-  id: ObjectId;
+  id: LegacyObjectId;
   position: readonly [number, number, number];
   labelOffsetY?: number;
   interactive: boolean;
@@ -15,7 +15,7 @@ interface InteractiveObjectProps {
 }
 
 // Each object gets a small, distinct hover personality rather than one generic bump.
-const HOVER_TILT: Record<ObjectId, number> = {
+const HOVER_TILT: Record<LegacyObjectId, number> = {
   memories: 0,
   photostrip: 0.09,
   letters: -0.05,
@@ -23,7 +23,7 @@ const HOVER_TILT: Record<ObjectId, number> = {
   surprise: 0.04,
 };
 
-const HOVER_LIFT: Record<ObjectId, number> = {
+const HOVER_LIFT: Record<LegacyObjectId, number> = {
   memories: 0.015,
   photostrip: 0.03,
   letters: 0.012,
@@ -40,7 +40,8 @@ export function InteractiveObject({
 }: InteractiveObjectProps) {
   const groupRef = useRef<Group>(null);
   const { hoveredObject, setHoveredObject, focusObject } = useExperience();
-  const hovered = hoveredObject === id;
+  const mappedId: ObjectId = id === "song" ? "playlist" : id === "surprise" ? "story" : id === "photostrip" ? "memories" : id;
+  const hovered = hoveredObject === mappedId;
 
   useFrame(() => {
     if (!groupRef.current) return;
@@ -56,7 +57,7 @@ export function InteractiveObject({
   const handleOver = (event: ThreeEvent<PointerEvent>) => {
     if (!interactive) return;
     event.stopPropagation();
-    setHoveredObject(id);
+    setHoveredObject(mappedId);
     document.body.style.cursor = "pointer";
   };
 
@@ -72,7 +73,7 @@ export function InteractiveObject({
     event.stopPropagation();
     setHoveredObject(null);
     document.body.style.cursor = "auto";
-    focusObject(id);
+    focusObject(mappedId);
   };
 
   return (

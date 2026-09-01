@@ -122,24 +122,6 @@ export function BoothBody() {
         />
       </RoundedBox>
 
-      {/* Back wall closing the cavity */}
-      <RoundedBox
-        args={[BOOTH.outerWidth - 0.06, BOOTH.outerHeight - 0.06, 0.08]}
-        radius={0.06}
-        smoothness={2}
-        position={[0, 0, INTERIOR_BACK_Z - 0.04]}
-        receiveShadow
-      >
-        <meshStandardMaterial
-          map={backTex.map}
-          roughnessMap={backTex.roughnessMap}
-          bumpMap={backTex.bumpMap}
-          bumpScale={0.02}
-          roughness={0.7}
-          metalness={0.04}
-        />
-      </RoundedBox>
-
       {/* Base plinth the booth stands on */}
       <RoundedBox
         args={[BOOTH.outerWidth + 0.16, 0.18, cavityDepth + BOOTH.frameDepth + 0.2]}
