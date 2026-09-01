@@ -14,13 +14,13 @@ export const ENTRANCE_TUNING = {
   },
   camera: {
     desktop: {
-      position: [2.35, 0.95, 7.45] as const,
-      lookAt: [-0.12, -0.18, 0] as const,
+      position: [1.32, 0.58, 7.65] as const,
+      lookAt: [0, -0.22, 0] as const,
       fov: 40,
     },
     tablet: {
-      position: [1.15, 0.72, 7.7] as const,
-      lookAt: [-0.05, -0.2, 0] as const,
+      position: [0.66, 0.48, 7.88] as const,
+      lookAt: [0, -0.22, 0] as const,
       fov: 42,
     },
     mobile: {

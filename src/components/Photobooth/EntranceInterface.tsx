@@ -15,11 +15,6 @@ export function EntranceInterface({
 
   return (
     <div className={`entry-interface${entering ? " entry-interface--entering" : ""}`}>
-      <header className="scene-copy">
-        <p className="scene-brand">SNAPSHOT</p>
-        <p className="scene-tagline">a little place for our memories</p>
-      </header>
-
       <div className="entry-action">
         <button
           type="button"

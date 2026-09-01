@@ -17,9 +17,9 @@ export const FRAME_BACK_Z = -BOOTH.frameDepth;
 export const INTERIOR_BACK_Z = FRAME_BACK_Z - BOOTH.interiorDepth;
 
 export const WOOD_COLORS = {
-  base: "#4a3527",
-  grainDark: "#2a1c14",
-  grainLight: "#6b4c37",
+  base: "#68472f",
+  grainDark: "#2f1d13",
+  grainLight: "#8d6242",
 } as const;
 
 export const WOOD_DARK_COLORS = {
@@ -28,4 +28,4 @@ export const WOOD_DARK_COLORS = {
   grainLight: "#3c2a1f",
 } as const;
 
-export const CURTAIN_COLOR = "#e3b9c3";
+export const CURTAIN_COLOR = "#b97874";

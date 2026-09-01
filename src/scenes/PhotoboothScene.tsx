@@ -7,6 +7,7 @@ import { useCurtainAnimation } from "../hooks/useCurtainAnimation";
 import { useEntrancePreferences } from "../hooks/useEntrancePreferences";
 import { useExperience } from "../state/ExperienceContext";
 import { BoothBody } from "../components/Photobooth/BoothBody";
+import { BoothMarquee } from "../components/Photobooth/BoothMarquee";
 import { Curtains } from "../components/Photobooth/Curtains";
 import { BoothInterior } from "../components/Photobooth/BoothInterior";
 import { InteriorObjects } from "../components/Photobooth/interior/InteriorObjects";
@@ -114,6 +115,7 @@ export function PhotoboothScene() {
           <ExteriorEnvironment revealing={revealing} reducedMotion={reducedMotion} />
           <BoothStage reducedMotion={reducedMotion}>
             <BoothBody />
+            <BoothMarquee />
             <Curtains
               progress={progress}
               dragging={dragging}

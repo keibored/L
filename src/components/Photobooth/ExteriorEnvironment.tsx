@@ -117,7 +117,16 @@ function makeFloorTexture() {
 function WallDetails({ detailed }: { detailed: boolean }) {
   return (
     <group>
-      <group position={[3.05, 1.28, -3.93]}>
+      <mesh position={[0, -1.28, -3.86]} receiveShadow>
+        <boxGeometry args={[12, 0.08, 0.12]} />
+        <meshStandardMaterial color="#211612" roughness={0.72} />
+      </mesh>
+      <mesh position={[0, -1.82, -3.84]} receiveShadow>
+        <boxGeometry args={[12, 0.14, 0.15]} />
+        <meshStandardMaterial color="#130d0b" roughness={0.76} />
+      </mesh>
+
+      <group position={[-3.72, 0.58, -3.9]}>
         <mesh position={[0, 0.28, 0.01]} castShadow>
           <cylinderGeometry args={[0.17, 0.24, 0.34, 20, 1, true]} />
           <meshStandardMaterial color="#38241e" roughness={0.72} side={DoubleSide} />
@@ -126,17 +135,21 @@ function WallDetails({ detailed }: { detailed: boolean }) {
           <boxGeometry args={[0.06, 0.42, 0.07]} />
           <meshStandardMaterial color="#241915" roughness={0.65} metalness={0.18} />
         </mesh>
-        <pointLight position={[0, 0.16, 0.4]} intensity={7} distance={3.2} decay={2} color="#ffbd86" />
+        <mesh position={[0, 0.19, 0.07]}>
+          <sphereGeometry args={[0.065, 16, 12]} />
+          <meshStandardMaterial color="#ffd3a0" emissive="#ff9f55" emissiveIntensity={2.8} roughness={0.35} />
+        </mesh>
+        <pointLight position={[0, 0.16, 0.45]} intensity={9} distance={3.6} decay={2} color="#ffbd86" />
       </group>
 
       {detailed && (
         <>
-          <group position={[-3.15, 0.5, -3.92]} rotation={[0, 0.03, -0.035]}>
+          <group position={[-2.72, 0.47, -3.92]} rotation={[0, 0.03, -0.035]}>
             <mesh castShadow>
-              <planeGeometry args={[1.45, 1.35]} />
+              <planeGeometry args={[0.9, 1.25]} />
               <meshStandardMaterial color="#1b1311" roughness={0.88} />
             </mesh>
-            {[-0.42, 0, 0.42].map((x, column) => (
+            {[-0.22, 0.22].map((x, column) => (
               <group key={x} position={[x, 0.04 + column * 0.035, 0.015]} rotation={[0, 0, (column - 1) * 0.025]}>
                 <mesh>
                   <planeGeometry args={[0.24, 0.82]} />
@@ -155,17 +168,24 @@ function WallDetails({ detailed }: { detailed: boolean }) {
             ))}
           </group>
 
-          <group position={[3.08, -1.87, -1.9]} rotation={[0, -0.16, 0]}>
-            <RoundedBox args={[1.35, 0.16, 0.5]} radius={0.06} smoothness={2} castShadow receiveShadow>
-              <meshStandardMaterial color="#241814" roughness={0.78} />
-            </RoundedBox>
-            {[-0.5, 0.5].map((x) => (
-              <mesh key={x} position={[x, -0.36, 0]} castShadow>
-                <boxGeometry args={[0.09, 0.7, 0.34]} />
-                <meshStandardMaterial color="#17100e" roughness={0.7} metalness={0.08} />
+          <group position={[-3.02, -1.45, -1.72]} rotation={[0, 0.08, 0]}>
+            <mesh castShadow receiveShadow>
+              <cylinderGeometry args={[0.48, 0.42, 0.16, 28]} />
+              <meshStandardMaterial color="#3a251b" roughness={0.74} />
+            </mesh>
+            {[-1, 1].flatMap((x) => [-1, 1].map((z) => (
+              <mesh key={`${x}-${z}`} position={[x * 0.3, -0.43, z * 0.23]} rotation={[0, 0, x * 0.09]} castShadow>
+                <cylinderGeometry args={[0.035, 0.055, 0.82, 10]} />
+                <meshStandardMaterial color="#1c120f" roughness={0.76} />
               </mesh>
-            ))}
-            <group position={[0.12, 0.22, 0]} rotation={[0, -0.2, 0]}>
+            )))}
+          </group>
+
+          <group position={[3.15, -0.72, -3.62]} rotation={[0, -0.04, 0]}>
+            <RoundedBox args={[1.75, 0.1, 0.46]} radius={0.025} smoothness={2} castShadow receiveShadow>
+              <meshStandardMaterial color="#2c1c16" roughness={0.72} />
+            </RoundedBox>
+            <group position={[0.1, 0.24, 0.08]} rotation={[0, -0.12, 0]}>
               <RoundedBox args={[0.42, 0.28, 0.24]} radius={0.04} smoothness={2} castShadow>
                 <meshStandardMaterial color="#171617" roughness={0.48} metalness={0.25} />
               </RoundedBox>
@@ -173,6 +193,14 @@ function WallDetails({ detailed }: { detailed: boolean }) {
                 <cylinderGeometry args={[0.09, 0.12, 0.1, 18]} />
                 <meshStandardMaterial color="#202329" roughness={0.35} metalness={0.45} />
               </mesh>
+            </group>
+            <group position={[0.62, 0.13, -0.02]}>
+              {[0, 0.08, 0.16].map((y, index) => (
+                <mesh key={y} position={[0, y, 0]} castShadow>
+                  <boxGeometry args={[0.5 - index * 0.04, 0.07, 0.3]} />
+                  <meshStandardMaterial color={["#271915", "#3a2620", "#1b1513"][index]} roughness={0.88} />
+                </mesh>
+              ))}
             </group>
           </group>
         </>
