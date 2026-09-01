@@ -1,5 +1,6 @@
-import type { ObjectId } from "../../../state/ExperienceContext";
 import { INTERIOR_BACK_Z, OPENING_BOTTOM, OPENING_TOP } from "../boothConfig";
+
+export type LegacyObjectId = "memories" | "photostrip" | "letters" | "song" | "surprise";
 
 export const FLOOR_Y = OPENING_BOTTOM + 0.02;
 export const DESK_TOP_Y = FLOOR_Y + 0.55;
@@ -11,7 +12,7 @@ export const DESK_THICKNESS = 0.05;
 // Asymmetric, layered placement: memories anchors the back, photostrip hangs
 // higher in the midground, the rest sit in the foreground at varying depths
 // so the eye travels through the scene rather than scanning a straight row.
-export const OBJECT_POSITIONS: Record<ObjectId, readonly [number, number, number]> = {
+export const OBJECT_POSITIONS: Record<LegacyObjectId, readonly [number, number, number]> = {
   memories: [-0.12, DESK_TOP_Y + 0.32, INTERIOR_BACK_Z + 0.34],
   photostrip: [0.72, DESK_TOP_Y + 0.82, INTERIOR_BACK_Z + 0.5],
   letters: [-0.68, DESK_TOP_Y + 0.02, DESK_Z + 0.3],
@@ -19,7 +20,7 @@ export const OBJECT_POSITIONS: Record<ObjectId, readonly [number, number, number
   surprise: [0.64, DESK_TOP_Y + 0.1, DESK_Z + 0.24],
 };
 
-export const OBJECT_LABELS: Record<ObjectId, string> = {
+export const OBJECT_LABELS: Record<LegacyObjectId, string> = {
   memories: "OUR MEMORIES",
   photostrip: "PHOTO STRIP",
   letters: "LETTERS",

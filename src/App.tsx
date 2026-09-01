@@ -8,8 +8,8 @@ function Experience() {
 
   return (
     <>
+      <PhotoboothScene />
       {phase === "loading" && <LoadingScene />}
-      {phase !== "loading" && <PhotoboothScene />}
     </>
   );
 }

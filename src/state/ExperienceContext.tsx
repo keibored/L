@@ -1,40 +1,84 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { isDirectInteriorPreview } from "../utils/devScenePreview";
 
-export type Phase = "loading" | "exterior" | "entering" | "interior" | "focused";
+export type Phase = "loading" | "outside" | "entering" | "inside" | "focusing" | "content" | "exiting";
 
-export type ObjectId = "memories" | "photostrip" | "letters" | "song" | "surprise";
+export type ObjectId = "memories" | "letters" | "playlist" | "story";
 
 interface ExperienceState {
   phase: Phase;
   focusedObject: ObjectId | null;
   hoveredObject: ObjectId | null;
+  visitedObjects: ObjectId[];
+  recenterToken: number;
   finishLoading: () => void;
   beginEntering: () => void;
-  arriveInterior: () => void;
+  arriveInside: () => void;
   focusObject: (id: ObjectId) => void;
+  openContent: () => void;
   closeContent: () => void;
+  finishRecenter: () => void;
+  recenterView: () => void;
+  beginExiting: () => void;
+  finishExiting: () => void;
   setHoveredObject: (id: ObjectId | null) => void;
 }
 
 const ExperienceCtx = createContext<ExperienceState | null>(null);
 
 export function ExperienceProvider({ children }: { children: ReactNode }) {
-  const [phase, setPhase] = useState<Phase>("loading");
+  const [phase, setPhase] = useState<Phase>(() => (isDirectInteriorPreview() ? "inside" : "loading"));
   const [focusedObject, setFocusedObject] = useState<ObjectId | null>(null);
   const [hoveredObject, setHoveredObject] = useState<ObjectId | null>(null);
+  const [visitedObjects, setVisitedObjects] = useState<ObjectId[]>(() => {
+    try {
+      const saved = sessionStorage.getItem("snapshot-visited-stations");
+      return saved ? (JSON.parse(saved) as ObjectId[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [recenterToken, setRecenterToken] = useState(0);
 
-  const finishLoading = useCallback(() => setPhase("exterior"), []);
-  const beginEntering = useCallback(() => setPhase((p) => (p === "exterior" ? "entering" : p)), []);
-  const arriveInterior = useCallback(() => setPhase("interior"), []);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("snapshot-visited-stations", JSON.stringify(visitedObjects));
+    } catch {
+      // Session storage is an enhancement; private browsing may disable it.
+    }
+  }, [visitedObjects]);
+
+  const finishLoading = useCallback(() => setPhase("outside"), []);
+  const beginEntering = useCallback(() => setPhase((p) => (p === "outside" ? "entering" : p)), []);
+  const arriveInside = useCallback(() => setPhase((p) => (p === "entering" ? "inside" : p)), []);
 
   const focusObject = useCallback((id: ObjectId) => {
     setFocusedObject(id);
-    setPhase("focused");
+    setHoveredObject(null);
+    setVisitedObjects((visited) => (visited.includes(id) ? visited : [...visited, id]));
+    setPhase((p) => (p === "inside" ? "focusing" : p));
   }, []);
+
+  const openContent = useCallback(() => setPhase((p) => (p === "focusing" ? "content" : p)), []);
 
   const closeContent = useCallback(() => {
     setFocusedObject(null);
-    setPhase("interior");
+    setPhase((p) => (p === "content" ? "focusing" : p));
+  }, []);
+
+  const finishRecenter = useCallback(() => setPhase((p) => (p === "focusing" ? "inside" : p)), []);
+  const recenterView = useCallback(() => setRecenterToken((token) => token + 1), []);
+
+  const beginExiting = useCallback(() => {
+    setFocusedObject(null);
+    setHoveredObject(null);
+    setPhase((p) => (p === "inside" || p === "focusing" || p === "content" ? "exiting" : p));
+  }, []);
+
+  const finishExiting = useCallback(() => {
+    setFocusedObject(null);
+    setHoveredObject(null);
+    setPhase((p) => (p === "exiting" ? "outside" : p));
   }, []);
 
   const value = useMemo(
@@ -42,14 +86,37 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
       phase,
       focusedObject,
       hoveredObject,
+      visitedObjects,
+      recenterToken,
       finishLoading,
       beginEntering,
-      arriveInterior,
+      arriveInside,
       focusObject,
+      openContent,
       closeContent,
+      finishRecenter,
+      recenterView,
+      beginExiting,
+      finishExiting,
       setHoveredObject,
     }),
-    [phase, focusedObject, hoveredObject, finishLoading, beginEntering, arriveInterior, focusObject, closeContent],
+    [
+      phase,
+      focusedObject,
+      hoveredObject,
+      visitedObjects,
+      recenterToken,
+      finishLoading,
+      beginEntering,
+      arriveInside,
+      focusObject,
+      openContent,
+      closeContent,
+      finishRecenter,
+      recenterView,
+      beginExiting,
+      finishExiting,
+    ],
   );
 
   return <ExperienceCtx.Provider value={value}>{children}</ExperienceCtx.Provider>;

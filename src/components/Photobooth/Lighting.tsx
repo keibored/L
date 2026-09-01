@@ -1,64 +1,110 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import type { PointLight } from "three";
+import { MathUtils, type AmbientLight, type PointLight, type SpotLight } from "three";
 import { OBJECT_POSITIONS } from "./interior/interiorLayout";
+import { ENTRANCE_TUNING } from "./entranceConfig";
 
 interface LightingProps {
   active: boolean;
+  attention: boolean;
+  revealing: boolean;
+  reducedMotion: boolean;
+  strength?: number;
+}
+function smoothReveal(value: number, start: number, end: number) {
+  const normalized = MathUtils.clamp((value - start) / (end - start), 0, 1);
+  return normalized * normalized * (3 - 2 * normalized);
 }
 
-export function Lighting({ active }: LightingProps) {
+export function Lighting({ active, attention, revealing, reducedMotion, strength = 1 }: LightingProps) {
+  const keyRef = useRef<SpotLight>(null);
+  const fillRef = useRef<SpotLight>(null);
+  const rimRef = useRef<PointLight>(null);
+  const ambientRef = useRef<AmbientLight>(null);
   const glowRef = useRef<PointLight>(null);
+  const leakRef = useRef<PointLight>(null);
 
   useFrame((state) => {
-    if (!glowRef.current) return;
-    const flicker = 1 + Math.sin(state.clock.elapsedTime * 1.6) * 0.05;
-    glowRef.current.intensity = (active ? 9 : 4) * flicker;
+    const time = state.clock.elapsedTime;
+    const reveal = revealing
+      ? smoothReveal(time, reducedMotion ? 0 : 0.35, reducedMotion ? 0.45 : 2.55)
+      : 1;
+    const flickerWindow = !reducedMotion && time > 1.05 && time < 1.48;
+    const flicker = flickerWindow
+      ? 1 - Math.sin(((time - 1.05) / 0.43) * Math.PI) * 0.22
+      : 1;
+    const hoverBoost = attention ? ENTRANCE_TUNING.lighting.hoverBoost : 1;
+    const breathing = reducedMotion ? 1 : 1 + Math.sin(time * 0.72) * 0.022;
+
+    if (keyRef.current) {
+      keyRef.current.intensity = ENTRANCE_TUNING.lighting.keyIntensity * reveal * flicker * hoverBoost * strength;
+    }
+    if (fillRef.current) fillRef.current.intensity = ENTRANCE_TUNING.lighting.fillIntensity * reveal * strength;
+    if (rimRef.current) rimRef.current.intensity = ENTRANCE_TUNING.lighting.rimIntensity * reveal * strength;
+    if (ambientRef.current) {
+      ambientRef.current.intensity = ENTRANCE_TUNING.lighting.ambientIntensity * Math.max(reveal, 0.08) * strength;
+    }
+    if (glowRef.current) {
+      const base = active ? 9 : ENTRANCE_TUNING.lighting.curtainGlowIntensity;
+      glowRef.current.intensity = base * reveal * breathing * hoverBoost * strength;
+    }
+    if (leakRef.current) {
+      leakRef.current.intensity = (active ? 0.75 : attention ? 2.75 : 1.65) * Math.max(reveal, 0.15) * strength;
+    }
   });
 
   return (
     <group>
-      {/* Warm key light — directional so real shadow falls, not a flat wash */}
       <spotLight
-        position={[-2.3, 3.4, 4.6]}
-        intensity={155}
-        angle={0.58}
-        penumbra={0.65}
-        color="#ffd2a0"
+        ref={keyRef}
+        position={[-2.3, 3.6, 4.7]}
+        intensity={0}
+        angle={0.6}
+        penumbra={0.78}
+        color="#ffd0a0"
         castShadow
-        shadow-mapSize={[1536, 1536]}
+        shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.0003}
-        shadow-radius={3}
+        shadow-radius={4}
       />
-
-      {/* Fill — enough to keep the shadow side legible without cancelling the shadow */}
-      <spotLight position={[2.7, 1.6, 4.2]} intensity={32} angle={0.65} penumbra={0.95} color="#d4c2ae" />
-
-      {/* Cool rim light separating the booth silhouette from the backdrop */}
-      <pointLight position={[0.5, 2.6, -3.8]} intensity={62} color="#7f93b8" distance={13} decay={2} />
-
-      {/* Ambient fill — enough to keep wood surfaces legible, low enough to preserve contrast */}
-      <ambientLight intensity={0.45} color="#4a3b2e" />
-
-      {/* Interior warm glow, brightens once the curtain opens — the only light that
-          reaches the desk objects, so it casts real contact shadows to ground them */}
+      <spotLight
+        ref={fillRef}
+        position={[2.8, 1.7, 4.1]}
+        intensity={0}
+        angle={0.68}
+        penumbra={0.96}
+        color="#d1b7a5"
+      />
+      <pointLight
+        ref={rimRef}
+        position={[0.8, 2.5, -3.9]}
+        intensity={0}
+        color="#73839f"
+        distance={13}
+        decay={2}
+      />
+      <ambientLight ref={ambientRef} intensity={0.03} color="#4a382f" />
       <pointLight
         ref={glowRef}
         position={[-0.15, 0.9, -1.15]}
-        intensity={4}
+        intensity={0}
         distance={4.2}
         decay={2}
-        color="#ff9d5c"
+        color="#ff9d70"
         castShadow={active}
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.001}
         shadow-radius={4}
       />
+      <pointLight
+        ref={leakRef}
+        position={[0, 0.35, 0.8]}
+        intensity={0}
+        distance={2.6}
+        decay={2}
+        color="#e9968d"
+      />
 
-      {/* Small glow that always leaks through the curtain gap */}
-      <pointLight position={[0, 0.4, 1.1]} intensity={active ? 0.7 : 1.8} distance={2.3} color="#ffb17a" />
-
-      {/* Selective accent lights — the eye should be pulled to these, everything else may fall into shadow */}
       {active && (
         <>
           <pointLight

@@ -7,14 +7,14 @@ import { useExperience } from "../../state/ExperienceContext";
 // not the renderer's default near/far which would put "focus" far outside the booth.
 const FOCUS_DISTANCE = {
   exterior: 0.373,
-  interior: 0.073,
-  focused: 0.027,
+  interior: 0.08,
+  focused: 0.045,
 };
 
 export function EffectsPipeline() {
   const { phase } = useExperience();
-  const focused = phase === "focused";
-  const interior = phase === "interior" || phase === "entering";
+  const focused = phase === "focusing" || phase === "content";
+  const interior = phase === "inside" || phase === "entering" || phase === "exiting";
 
   const focusDistance = focused ? FOCUS_DISTANCE.focused : interior ? FOCUS_DISTANCE.interior : FOCUS_DISTANCE.exterior;
   // Exterior keeps deep focus (near-zero bokeh) — it's a wide establishing shot,
@@ -22,7 +22,7 @@ export function EffectsPipeline() {
   const bokehScale = focused ? 1.4 : interior ? 0.7 : 0.08;
 
   return (
-    <EffectComposer multisampling={0} enableNormalPass={false}>
+    <EffectComposer multisampling={0} enableNormalPass={false} stencilBuffer>
       <DepthOfField
         focusDistance={focusDistance}
         focalLength={focused ? 0.028 : 0.016}
