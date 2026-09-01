@@ -4,7 +4,7 @@ import type { PerspectiveCamera } from "three";
 import { gsap } from "gsap";
 import { MathUtils, Vector3 } from "three";
 import { useExperience } from "../../state/ExperienceContext";
-import { EXTERIOR, INTERIOR, focusWaypoint, type Waypoint } from "./cameraWaypoints";
+import { EXTERIOR, INTERIOR, exteriorWaypointForViewport, focusWaypoint, type Waypoint } from "./cameraWaypoints";
 
 function applyFov(target: PerspectiveCamera, fov: number) {
   target.fov = fov;
@@ -13,16 +13,20 @@ function applyFov(target: PerspectiveCamera, fov: number) {
 
 interface CameraRigProps {
   dragging: boolean;
+  engaged: boolean;
+  reducedMotion: boolean;
+  coarsePointer: boolean;
 }
 
-export function CameraRig({ dragging }: CameraRigProps) {
-  const { camera, pointer } = useThree();
+export function CameraRig({ dragging, engaged, reducedMotion, coarsePointer }: CameraRigProps) {
+  const { camera, pointer, size } = useThree();
   const { phase, focusedObject } = useExperience();
 
   const basePosition = useRef(new Vector3(...EXTERIOR.position));
   const lookTarget = useRef(new Vector3(...EXTERIOR.lookAt));
   const fovValue = useRef(EXTERIOR.fov);
   const parallax = useRef(new Vector3());
+  const engagement = useRef(0);
   const tweenRef = useRef<gsap.core.Timeline | null>(null);
   const hasInit = useRef(false);
 
@@ -30,13 +34,13 @@ export function CameraRig({ dragging }: CameraRigProps) {
     if (!hasInit.current) return;
 
     let waypoint: Waypoint = INTERIOR;
-    if (phase === "exterior") waypoint = EXTERIOR;
+    if (phase === "loading" || phase === "exterior") waypoint = exteriorWaypointForViewport(size.width, size.height);
     else if (phase === "interior") waypoint = INTERIOR;
     else if (phase === "focused" && focusedObject) waypoint = focusWaypoint(focusedObject);
     else if (phase === "entering") waypoint = INTERIOR;
 
     tweenRef.current?.kill();
-    const duration = phase === "entering" || phase === "interior" ? 1.5 : 1.1;
+    const duration = reducedMotion ? 0.3 : phase === "entering" || phase === "interior" ? 1.5 : 1.1;
     const fovObj = { fov: fovValue.current };
     const tl = gsap.timeline();
     tl.to(
@@ -62,28 +66,35 @@ export function CameraRig({ dragging }: CameraRigProps) {
       0,
     );
     tweenRef.current = tl;
-  }, [phase, focusedObject]);
+  }, [phase, focusedObject, reducedMotion, size.height, size.width]);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (!hasInit.current) {
-      basePosition.current.set(...EXTERIOR.position);
-      lookTarget.current.set(...EXTERIOR.lookAt);
-      fovValue.current = EXTERIOR.fov;
+      const initial = exteriorWaypointForViewport(size.width, size.height);
+      basePosition.current.set(...initial.position);
+      lookTarget.current.set(...initial.lookAt);
+      fovValue.current = initial.fov;
       hasInit.current = true;
     }
 
     // Subtle depth-giving parallax. Frozen on the exterior while the curtain is
     // being dragged so the panel being grabbed never drifts out from under the cursor.
     let targetParallax = { x: 0, y: 0 };
-    if (phase === "interior") targetParallax = { x: pointer.x * 0.07, y: pointer.y * 0.04 };
-    else if (phase === "exterior" && !dragging) targetParallax = { x: pointer.x * 0.1, y: pointer.y * 0.035 };
+    const allowPointerMotion = !reducedMotion && !coarsePointer;
+    if (phase === "interior" && allowPointerMotion) targetParallax = { x: pointer.x * 0.07, y: pointer.y * 0.04 };
+    else if (phase === "exterior" && !dragging && allowPointerMotion) targetParallax = { x: pointer.x * 0.075, y: pointer.y * 0.028 };
     parallax.current.x = MathUtils.lerp(parallax.current.x, targetParallax.x, 0.04);
     parallax.current.y = MathUtils.lerp(parallax.current.y, targetParallax.y, 0.04);
 
+    const exterior = phase === "loading" || phase === "exterior";
+    engagement.current = MathUtils.lerp(engagement.current, exterior && engaged ? 1 : 0, reducedMotion ? 1 : 0.055);
+    const idleX = exterior && !reducedMotion ? Math.sin(state.clock.elapsedTime * 0.16) * 0.012 : 0;
+    const idleY = exterior && !reducedMotion ? Math.sin(state.clock.elapsedTime * 0.12 + 1.2) * 0.008 : 0;
+
     camera.position.set(
-      basePosition.current.x + parallax.current.x,
-      basePosition.current.y + parallax.current.y,
-      basePosition.current.z,
+      basePosition.current.x + parallax.current.x + idleX,
+      basePosition.current.y + parallax.current.y + idleY,
+      basePosition.current.z - engagement.current * 0.085,
     );
     camera.lookAt(lookTarget.current);
 

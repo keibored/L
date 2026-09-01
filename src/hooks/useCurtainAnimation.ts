@@ -5,7 +5,7 @@ const DRAG_RANGE = 260;
 const CLICK_MOVE_THRESHOLD = 4;
 const READY_THRESHOLD = 0.995;
 
-export function useCurtainAnimation() {
+export function useCurtainAnimation(reducedMotion = false) {
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -23,20 +23,22 @@ export function useCurtainAnimation() {
   }, []);
 
   const animateTo = useCallback(
-    (target: number) => {
+    (target: number, duration?: number) => {
       tweenRef.current?.kill();
       const obj = { value: progressRef.current };
       tweenRef.current = gsap.to(obj, {
         value: target,
-        duration: 0.95,
+        duration: reducedMotion ? 0.24 : duration ?? 0.95,
         ease: target > obj.value ? "power3.out" : "power2.inOut",
         onUpdate() {
           applyProgress(obj.value);
         },
       });
     },
-    [applyProgress],
+    [applyProgress, reducedMotion],
   );
+
+  const openCurtain = useCallback((duration?: number) => animateTo(1, duration), [animateTo]);
 
   const handlePointerDown = useCallback((clientX: number) => {
     tweenRef.current?.kill();
@@ -71,9 +73,10 @@ export function useCurtainAnimation() {
   const handleClick = useCallback(() => {
     if (suppressClickRef.current) {
       suppressClickRef.current = false;
-      return;
+      return false;
     }
     animateTo(progressRef.current > 0.5 ? 0 : 1);
+    return true;
   }, [animateTo]);
 
   useEffect(() => {
@@ -88,5 +91,6 @@ export function useCurtainAnimation() {
     dragging,
     handlePointerDown,
     handleClick,
+    openCurtain,
   };
 }

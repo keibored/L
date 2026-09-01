@@ -1,5 +1,6 @@
 import type { ObjectId } from "../../state/ExperienceContext";
 import { OBJECT_POSITIONS } from "./interior/interiorLayout";
+import { ENTRANCE_TUNING } from "./entranceConfig";
 
 export interface Waypoint {
   position: readonly [number, number, number];
@@ -8,10 +9,15 @@ export interface Waypoint {
 }
 
 export const EXTERIOR: Waypoint = {
-  position: [2.55, 1.15, 6.9],
-  lookAt: [-0.1, -0.15, 0],
-  fov: 40,
+  ...ENTRANCE_TUNING.camera.desktop,
 };
+
+export function exteriorWaypointForViewport(width: number, height: number): Waypoint {
+  const aspect = width / Math.max(height, 1);
+  if (width <= 680 || aspect < 0.82) return { ...ENTRANCE_TUNING.camera.mobile };
+  if (width <= 1024 || aspect < 1.2) return { ...ENTRANCE_TUNING.camera.tablet };
+  return EXTERIOR;
+}
 
 export const INTERIOR: Waypoint = {
   position: [0.4, -0.52, -0.18],
