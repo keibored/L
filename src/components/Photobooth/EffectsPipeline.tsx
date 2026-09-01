@@ -1,6 +1,7 @@
 import { EffectComposer, Bloom, Vignette, Noise, DepthOfField, BrightnessContrast, HueSaturation } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 import { useExperience } from "../../state/ExperienceContext";
+import { ENTRANCE_TUNING } from "./entranceConfig";
 
 // Camera near/far are fixed at 0.05 / 20 (set on the Canvas camera prop) so these
 // normalized focus distances are calibrated against the scene's real depth range,
@@ -36,10 +37,14 @@ export function EffectsPipeline() {
         mipmapBlur
         radius={0.5}
       />
-      <BrightnessContrast brightness={0.02} contrast={0.09} />
+      <BrightnessContrast brightness={interior ? 0.02 : 0.065} contrast={interior ? 0.09 : 0.025} />
       <HueSaturation saturation={-0.06} />
       <Noise premultiply blendFunction={BlendFunction.OVERLAY} opacity={0.045} />
-      <Vignette eskil={false} offset={0.2} darkness={0.85} />
+      <Vignette
+        eskil={false}
+        offset={interior ? 0.2 : 0.28}
+        darkness={interior ? 0.85 : ENTRANCE_TUNING.vignetteDarkness}
+      />
     </EffectComposer>
   );
 }

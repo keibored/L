@@ -19,9 +19,9 @@ function makeBackdropTexture() {
   const ctx = canvas.getContext("2d")!;
 
   const base = ctx.createLinearGradient(0, 0, size, size);
-  base.addColorStop(0, "#251719");
-  base.addColorStop(0.48, "#1b1110");
-  base.addColorStop(1, "#100b09");
+  base.addColorStop(0, "#382427");
+  base.addColorStop(0.48, "#2b1a19");
+  base.addColorStop(1, "#17100e");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, size, size);
 
@@ -48,10 +48,21 @@ function makeBackdropTexture() {
     ctx.stroke();
   }
 
+  for (let index = 0; index < 14; index += 1) {
+    const x = random() * size;
+    const width = 12 + random() * 46;
+    const stain = ctx.createLinearGradient(x, 0, x + width, 0);
+    stain.addColorStop(0, "rgba(0,0,0,0)");
+    stain.addColorStop(0.5, `rgba(18,8,10,${0.018 + random() * 0.02})`);
+    stain.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = stain;
+    ctx.fillRect(x, 0, width, size);
+  }
+
   const glow = ctx.createRadialGradient(size * 0.48, size * 0.38, 0, size * 0.48, size * 0.38, size * 0.68);
-  glow.addColorStop(0, "rgba(129,72,57,0.24)");
-  glow.addColorStop(0.58, "rgba(66,37,31,0.1)");
-  glow.addColorStop(1, "rgba(0,0,0,0.42)");
+  glow.addColorStop(0, "rgba(166,101,72,0.3)");
+  glow.addColorStop(0.58, "rgba(91,49,41,0.13)");
+  glow.addColorStop(1, "rgba(0,0,0,0.24)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, size, size);
 
@@ -68,7 +79,7 @@ function makeFloorTexture() {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#120d0b";
+  ctx.fillStyle = "#241812";
   ctx.fillRect(0, 0, size, size);
 
   let seed = 19;
@@ -79,14 +90,14 @@ function makeFloorTexture() {
 
   for (let row = 0; row <= 8; row += 1) {
     const y = row * 64;
-    ctx.strokeStyle = "rgba(6,4,3,0.72)";
+    ctx.strokeStyle = "rgba(8,5,4,0.58)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(size, y);
     ctx.stroke();
     for (let x = -20; x < size; x += 58 + Math.floor(random() * 46)) {
-      ctx.strokeStyle = "rgba(150,104,78,0.045)";
+      ctx.strokeStyle = "rgba(183,130,91,0.075)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(x, y + 5);
@@ -96,12 +107,12 @@ function makeFloorTexture() {
   }
 
   for (let index = 0; index < 1200; index += 1) {
-    ctx.fillStyle = random() > 0.5 ? "rgba(255,224,190,0.012)" : "rgba(0,0,0,0.03)";
+    ctx.fillStyle = random() > 0.5 ? "rgba(255,224,190,0.022)" : "rgba(0,0,0,0.028)";
     ctx.fillRect(random() * size, random() * size, 1, 1);
   }
 
   const glow = ctx.createRadialGradient(size / 2, size * 0.36, 0, size / 2, size * 0.36, size * 0.64);
-  glow.addColorStop(0, "rgba(116,72,51,0.18)");
+  glow.addColorStop(0, "rgba(167,103,63,0.28)");
   glow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, size, size);
@@ -118,15 +129,19 @@ function WallDetails({ detailed }: { detailed: boolean }) {
   return (
     <group>
       <mesh position={[0, -1.28, -3.86]} receiveShadow>
-        <boxGeometry args={[12, 0.08, 0.12]} />
-        <meshStandardMaterial color="#211612" roughness={0.72} />
+        <boxGeometry args={[22, 0.08, 0.12]} />
+        <meshStandardMaterial color="#36231c" roughness={0.72} />
       </mesh>
       <mesh position={[0, -1.82, -3.84]} receiveShadow>
-        <boxGeometry args={[12, 0.14, 0.15]} />
-        <meshStandardMaterial color="#130d0b" roughness={0.76} />
+        <boxGeometry args={[22, 0.14, 0.15]} />
+        <meshStandardMaterial color="#241713" roughness={0.76} />
       </mesh>
 
       <group position={[-3.72, 0.58, -3.9]}>
+        <mesh position={[0, 0.48, -0.02]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.16, 0.16, 0.07, 24]} />
+          <meshStandardMaterial color="#3a251e" roughness={0.48} metalness={0.38} />
+        </mesh>
         <mesh position={[0, 0.28, 0.01]} castShadow>
           <cylinderGeometry args={[0.17, 0.24, 0.34, 20, 1, true]} />
           <meshStandardMaterial color="#38241e" roughness={0.72} side={DoubleSide} />
@@ -147,19 +162,19 @@ function WallDetails({ detailed }: { detailed: boolean }) {
           <group position={[-2.72, 0.47, -3.92]} rotation={[0, 0.03, -0.035]}>
             <mesh castShadow>
               <planeGeometry args={[0.9, 1.25]} />
-              <meshStandardMaterial color="#1b1311" roughness={0.88} />
+              <meshStandardMaterial color="#2a1d19" roughness={0.88} />
             </mesh>
             {[-0.22, 0.22].map((x, column) => (
               <group key={x} position={[x, 0.04 + column * 0.035, 0.015]} rotation={[0, 0, (column - 1) * 0.025]}>
                 <mesh>
                   <planeGeometry args={[0.24, 0.82]} />
-                  <meshStandardMaterial color="#c5aa96" roughness={0.9} />
+                  <meshStandardMaterial color="#d0b49e" emissive="#2b211b" emissiveIntensity={0.35} roughness={0.9} />
                 </mesh>
                 {[0.25, 0.08, -0.09, -0.26].map((y, image) => (
                   <mesh key={y} position={[0, y, 0.006]}>
                     <planeGeometry args={[0.18, 0.13]} />
                     <meshStandardMaterial
-                      color={["#513837", "#78524b", "#3e3535", "#6f4a43"][(column + image) % 4]}
+                      color={["#684947", "#8b6157", "#504746", "#80584e"][(column + image) % 4]}
                       roughness={0.94}
                     />
                   </mesh>
@@ -171,19 +186,23 @@ function WallDetails({ detailed }: { detailed: boolean }) {
           <group position={[-3.02, -1.45, -1.72]} rotation={[0, 0.08, 0]}>
             <mesh castShadow receiveShadow>
               <cylinderGeometry args={[0.48, 0.42, 0.16, 28]} />
-              <meshStandardMaterial color="#3a251b" roughness={0.74} />
+              <meshStandardMaterial color="#543725" roughness={0.74} />
             </mesh>
             {[-1, 1].flatMap((x) => [-1, 1].map((z) => (
               <mesh key={`${x}-${z}`} position={[x * 0.3, -0.43, z * 0.23]} rotation={[0, 0, x * 0.09]} castShadow>
                 <cylinderGeometry args={[0.035, 0.055, 0.82, 10]} />
-                <meshStandardMaterial color="#1c120f" roughness={0.76} />
+                <meshStandardMaterial color="#332118" roughness={0.76} />
               </mesh>
             )))}
           </group>
 
           <group position={[3.15, -0.72, -3.62]} rotation={[0, -0.04, 0]}>
+            <mesh position={[0, 0.48, -0.2]}>
+              <circleGeometry args={[1.15, 32]} />
+              <meshBasicMaterial color="#69758a" transparent opacity={0.055} depthWrite={false} />
+            </mesh>
             <RoundedBox args={[1.75, 0.1, 0.46]} radius={0.025} smoothness={2} castShadow receiveShadow>
-              <meshStandardMaterial color="#2c1c16" roughness={0.72} />
+              <meshStandardMaterial color="#493128" roughness={0.72} />
             </RoundedBox>
             <group position={[0.1, 0.24, 0.08]} rotation={[0, -0.12, 0]}>
               <RoundedBox args={[0.42, 0.28, 0.24]} radius={0.04} smoothness={2} castShadow>
@@ -202,6 +221,7 @@ function WallDetails({ detailed }: { detailed: boolean }) {
                 </mesh>
               ))}
             </group>
+            <pointLight position={[0, 0.45, 0.65]} intensity={5.5} distance={3.2} decay={2} color="#69758a" />
           </group>
         </>
       )}
@@ -235,17 +255,19 @@ export function ExteriorEnvironment({ revealing, reducedMotion }: ExteriorEnviro
       ? MathUtils.smoothstep(time, reducedMotion ? 0.05 : 1.05, reducedMotion ? 0.45 : 2.35)
       : 1;
     if (wallMaterial.current) wallMaterial.current.opacity = ENTRANCE_TUNING.environmentVisibility * wallReveal;
-    if (floorMaterial.current) floorMaterial.current.opacity = 0.9 * floorReveal;
+    if (floorMaterial.current) floorMaterial.current.opacity = ENTRANCE_TUNING.floorVisibility * floorReveal;
   });
 
   return (
     <group>
-      <mesh position={[0, 0.42, -4.05]} receiveShadow>
-        <planeGeometry args={[12, 7.4]} />
+      <mesh position={[0, 0.35, -4.05]} receiveShadow>
+        <planeGeometry args={[22, 9]} />
         <meshStandardMaterial
           ref={wallMaterial}
           map={backdropTexture}
-          color="#7b5650"
+          color="#c09a8d"
+          emissive="#170d0e"
+          emissiveIntensity={0.42}
           roughness={0.96}
           metalness={0}
           transparent
@@ -258,9 +280,11 @@ export function ExteriorEnvironment({ revealing, reducedMotion }: ExteriorEnviro
         <meshStandardMaterial
           ref={floorMaterial}
           map={floorTexture}
-          color="#6f5548"
-          roughness={0.88}
-          metalness={0.08}
+          color="#a27b62"
+          emissive="#100a07"
+          emissiveIntensity={0.28}
+          roughness={0.84}
+          metalness={0.1}
           transparent
           opacity={0}
         />
