@@ -58,7 +58,7 @@ export function Lighting({ active, attention, revealing, reducedMotion }: Lighti
         ref={keyRef}
         position={[-2.3, 3.6, 4.7]}
         intensity={0}
-        angle={0.56}
+        angle={0.6}
         penumbra={0.78}
         color="#ffd0a0"
         castShadow

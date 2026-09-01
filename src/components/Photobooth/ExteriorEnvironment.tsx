@@ -235,7 +235,7 @@ export function ExteriorEnvironment({ revealing, reducedMotion }: ExteriorEnviro
       ? MathUtils.smoothstep(time, reducedMotion ? 0.05 : 1.05, reducedMotion ? 0.45 : 2.35)
       : 1;
     if (wallMaterial.current) wallMaterial.current.opacity = ENTRANCE_TUNING.environmentVisibility * wallReveal;
-    if (floorMaterial.current) floorMaterial.current.opacity = 0.9 * floorReveal;
+    if (floorMaterial.current) floorMaterial.current.opacity = 0.93 * floorReveal;
   });
 
   return (
@@ -245,7 +245,7 @@ export function ExteriorEnvironment({ revealing, reducedMotion }: ExteriorEnviro
         <meshStandardMaterial
           ref={wallMaterial}
           map={backdropTexture}
-          color="#7b5650"
+          color="#80605a"
           roughness={0.96}
           metalness={0}
           transparent
@@ -258,7 +258,7 @@ export function ExteriorEnvironment({ revealing, reducedMotion }: ExteriorEnviro
         <meshStandardMaterial
           ref={floorMaterial}
           map={floorTexture}
-          color="#6f5548"
+          color="#765c4e"
           roughness={0.88}
           metalness={0.08}
           transparent
