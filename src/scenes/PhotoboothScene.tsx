@@ -29,24 +29,12 @@ function BoothStage({ children, reducedMotion }: { children: ReactNode; reducedM
     if (!groupRef.current) return;
     const exterior = phase === "loading" || phase === "exterior";
     const target = exterior ? ENTRANCE_TUNING.boothScale : 1;
-    const targetY = exterior ? -2.36 * (1 - ENTRANCE_TUNING.boothScale) : 0;
     const current = groupRef.current.scale.x;
     const next = reducedMotion ? target : MathUtils.lerp(current, target, 0.045);
     groupRef.current.scale.setScalar(next);
-    groupRef.current.position.y = reducedMotion
-      ? targetY
-      : MathUtils.lerp(groupRef.current.position.y, targetY, 0.045);
   });
 
-  return (
-    <group
-      ref={groupRef}
-      scale={ENTRANCE_TUNING.boothScale}
-      position={[0, -2.36 * (1 - ENTRANCE_TUNING.boothScale), 0]}
-    >
-      {children}
-    </group>
-  );
+  return <group ref={groupRef} scale={ENTRANCE_TUNING.boothScale}>{children}</group>;
 }
 export function PhotoboothScene() {
   const { reducedMotion, coarsePointer } = useEntrancePreferences();
@@ -99,8 +87,6 @@ export function PhotoboothScene() {
   const revealing = phase === "loading";
   const entranceStyle = {
     "--entry-grain-opacity": ENTRANCE_TUNING.grainOpacity,
-    "--entry-grid-opacity": ENTRANCE_TUNING.gridOpacity,
-    "--entry-vignette-darkness": ENTRANCE_TUNING.vignetteDarkness,
     "--entry-reveal-duration": `${ENTRANCE_TUNING.revealDuration}s`,
     "--entry-transition-duration": `${ENTRANCE_TUNING.enterDuration}s`,
   } as CSSProperties;
@@ -115,7 +101,7 @@ export function PhotoboothScene() {
         dpr={[1, 1.75]}
         performance={{ min: 0.55 }}
         camera={{ position: EXTERIOR.position, fov: EXTERIOR.fov, near: 0.05, far: 20 }}
-        gl={{ toneMapping: ACESFilmicToneMapping, toneMappingExposure: ENTRANCE_TUNING.rendererExposure, antialias: true }}
+        gl={{ toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.08, antialias: true }}
       >
         <color attach="background" args={["#080706"]} />
         <fog attach="fog" args={["#100b09", 7, 16]} />
@@ -152,9 +138,9 @@ export function PhotoboothScene() {
           />
           <ContactShadows
             position={[0, -2.34, -0.18]}
-            opacity={0.82}
+            opacity={0.72}
             scale={8.5}
-            blur={2.35}
+            blur={2.8}
             far={3.2}
             color="#050302"
           />

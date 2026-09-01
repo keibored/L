@@ -81,36 +81,22 @@ canvas {
 }
 
 .entry-haze {
-  overflow: hidden;
   background:
-    radial-gradient(ellipse at 38% 18%, rgba(235, 178, 121, 0.13), transparent 38%),
-    radial-gradient(ellipse at 56% 60%, transparent 44%, rgba(7, 5, 4, 0.12) 80%);
+    radial-gradient(ellipse at 44% 16%, rgba(230, 192, 161, 0.065), transparent 34%),
+    radial-gradient(ellipse at 56% 60%, transparent 38%, rgba(7, 5, 4, 0.2) 74%);
   mix-blend-mode: screen;
-  opacity: 0.76;
+  opacity: 0.68;
   animation: haze-breathe 12s ease-in-out infinite alternate;
-}
-
-.entry-haze::before {
-  content: "";
-  position: absolute;
-  top: -36%;
-  left: 17%;
-  width: 38%;
-  height: 126%;
-  transform: rotate(7deg);
-  background: radial-gradient(ellipse at 50% 0%, rgba(255, 190, 121, 0.22), rgba(205, 130, 76, 0.07) 38%, transparent 72%);
-  filter: blur(38px);
-  opacity: 0.78;
 }
 
 .entry-grid {
   inset: clamp(12px, 1.55vw, 26px);
   background-image:
-    linear-gradient(rgba(232, 222, 211, 0.062) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(232, 222, 211, 0.062) 1px, transparent 1px);
+    linear-gradient(rgba(232, 222, 211, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232, 222, 211, 0.035) 1px, transparent 1px);
   background-size: clamp(46px, 5vw, 72px) clamp(46px, 5vw, 72px);
-  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.42) 38%, black 76%, rgba(0, 0, 0, 0.55) 100%);
-  opacity: var(--entry-grid-opacity, 0.66);
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 86%);
+  opacity: 0.42;
 }
 
 .entry-grain {
@@ -128,8 +114,8 @@ canvas {
 
 .entry-vignette {
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 27%, transparent 72%, rgba(0, 0, 0, 0.46)),
-    radial-gradient(ellipse at 50% 48%, transparent 52%, rgb(3 2 2 / var(--entry-vignette-darkness, 0.66)) 100%);
+    linear-gradient(180deg, rgba(0, 0, 0, 0.42), transparent 24%, transparent 73%, rgba(0, 0, 0, 0.58)),
+    radial-gradient(ellipse at 50% 48%, transparent 34%, rgba(3, 2, 2, 0.8) 100%);
 }
 
 .entry-border {
@@ -142,7 +128,7 @@ canvas {
   position: absolute;
   top: clamp(24px, 3.25vw, 48px);
   margin: 0;
-  color: rgba(232, 222, 211, 0.62);
+  color: rgba(232, 222, 211, 0.48);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.3em;
@@ -255,7 +241,7 @@ canvas {
   border-radius: 0;
   outline: none;
   background: none;
-  color: rgba(247, 232, 221, 0.92);
+  color: rgba(241, 226, 216, 0.8);
   cursor: pointer;
   pointer-events: auto;
   transition:
@@ -293,7 +279,7 @@ canvas {
 }
 
 .entry-button__support {
-  color: rgba(232, 222, 211, 0.68);
+  color: rgba(232, 222, 211, 0.5);
   font-family: Georgia, "Times New Roman", serif;
   font-size: 0.72rem;
   font-style: italic;
@@ -303,7 +289,7 @@ canvas {
 
 .entry-button:hover .entry-button__support,
 .entry-button:focus-visible .entry-button__support {
-  color: rgba(245, 231, 221, 0.84);
+  color: rgba(245, 231, 221, 0.7);
 }
 
 .entry-button__line {

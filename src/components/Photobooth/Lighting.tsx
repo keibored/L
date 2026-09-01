@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { MathUtils, type AmbientLight, type HemisphereLight, type PointLight, type SpotLight } from "three";
+import { MathUtils, type AmbientLight, type PointLight, type SpotLight } from "three";
 import { OBJECT_POSITIONS } from "./interior/interiorLayout";
 import { ENTRANCE_TUNING } from "./entranceConfig";
 
@@ -17,11 +17,9 @@ function smoothReveal(value: number, start: number, end: number) {
 
 export function Lighting({ active, attention, revealing, reducedMotion }: LightingProps) {
   const keyRef = useRef<SpotLight>(null);
-  const environmentKeyRef = useRef<SpotLight>(null);
   const fillRef = useRef<SpotLight>(null);
   const rimRef = useRef<PointLight>(null);
   const ambientRef = useRef<AmbientLight>(null);
-  const hemisphereRef = useRef<HemisphereLight>(null);
   const glowRef = useRef<PointLight>(null);
   const leakRef = useRef<PointLight>(null);
 
@@ -40,16 +38,10 @@ export function Lighting({ active, attention, revealing, reducedMotion }: Lighti
     if (keyRef.current) {
       keyRef.current.intensity = ENTRANCE_TUNING.lighting.keyIntensity * reveal * flicker * hoverBoost;
     }
-    if (environmentKeyRef.current) {
-      environmentKeyRef.current.intensity = ENTRANCE_TUNING.lighting.environmentKeyIntensity * reveal * flicker;
-    }
     if (fillRef.current) fillRef.current.intensity = ENTRANCE_TUNING.lighting.fillIntensity * reveal;
     if (rimRef.current) rimRef.current.intensity = ENTRANCE_TUNING.lighting.rimIntensity * reveal;
     if (ambientRef.current) {
       ambientRef.current.intensity = ENTRANCE_TUNING.lighting.ambientIntensity * Math.max(reveal, 0.08);
-    }
-    if (hemisphereRef.current) {
-      hemisphereRef.current.intensity = ENTRANCE_TUNING.lighting.hemisphereIntensity * Math.max(reveal, 0.08);
     }
     if (glowRef.current) {
       const base = active ? 9 : ENTRANCE_TUNING.lighting.curtainGlowIntensity;
@@ -66,23 +58,13 @@ export function Lighting({ active, attention, revealing, reducedMotion }: Lighti
         ref={keyRef}
         position={[-2.3, 3.6, 4.7]}
         intensity={0}
-        angle={0.7}
-        penumbra={0.86}
+        angle={0.56}
+        penumbra={0.78}
         color="#ffd0a0"
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.0003}
         shadow-radius={4}
-      />
-      <spotLight
-        ref={environmentKeyRef}
-        position={[-4.1, 5.7, 3.1]}
-        intensity={0}
-        angle={0.88}
-        penumbra={1}
-        color="#ffb878"
-        distance={15}
-        decay={1.65}
       />
       <spotLight
         ref={fillRef}
@@ -94,14 +76,13 @@ export function Lighting({ active, attention, revealing, reducedMotion }: Lighti
       />
       <pointLight
         ref={rimRef}
-        position={[3.2, 2.1, -2.9]}
+        position={[0.8, 2.5, -3.9]}
         intensity={0}
         color="#73839f"
         distance={13}
         decay={2}
       />
-      <ambientLight ref={ambientRef} intensity={0.05} color="#6a5044" />
-      <hemisphereLight ref={hemisphereRef} args={["#806657", "#160e0c", 0.04]} />
+      <ambientLight ref={ambientRef} intensity={0.03} color="#4a382f" />
       <pointLight
         ref={glowRef}
         position={[-0.15, 0.9, -1.15]}
