@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 export const ARCHIVE_IMAGE_URL = "/assets/interior-archive-base.png";
 export const ARCHIVE_ASPECT_RATIO = 16 / 9;
 
-export function useArchiveImagePreload() {
+export function useInteriorAssetsPreload() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -11,16 +11,13 @@ export function useArchiveImagePreload() {
     const image = new Image();
     image.decoding = "async";
 
-    const markReady = () => {
-      const decode = image.decode?.();
-      if (!decode) {
-        if (active) setReady(true);
-        return;
-      }
-      decode.catch(() => undefined).finally(() => {
-        if (active) setReady(true);
-      });
+    const decodeAssets = async () => {
+      if (image.decode) await image.decode();
+      await document.fonts?.ready;
+      if (active) setReady(true);
     };
+
+    const markReady = () => void decodeAssets().catch(() => undefined);
 
     image.addEventListener("load", markReady, { once: true });
     image.src = ARCHIVE_IMAGE_URL;

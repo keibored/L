@@ -43,6 +43,13 @@
   opacity: 0;
 }
 
+.canvas-shell--transition-active .entry-haze,
+.canvas-shell--transition-active .entry-grain,
+.canvas-shell--transition-active .entry-dust span,
+.canvas-shell--transition-active .entry-button__line i {
+  animation-play-state: paused !important;
+}
+
 canvas {
   display: block;
   width: 100%;
@@ -540,6 +547,7 @@ canvas {
 /* Interactive archive interior */
 
 .interior-interface {
+  --interior-frame-inset: clamp(12px, 1.2vw, 20px);
   position: absolute;
   inset: 0;
   z-index: 12;
@@ -551,7 +559,7 @@ canvas {
 .interior-interface::before {
   content: "";
   position: absolute;
-  inset: clamp(12px, 1.2vw, 20px);
+  inset: var(--interior-frame-inset);
   border: 1px solid rgba(236, 215, 189, 0.22);
   box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.18);
   pointer-events: none;
@@ -571,8 +579,8 @@ canvas {
 
 .interaction-counter {
   position: absolute;
-  top: max(clamp(38px, 5.5vh, 54px), calc(env(safe-area-inset-top) + 22px));
-  left: clamp(34px, 3vw, 48px);
+  top: max(calc(var(--interior-frame-inset) + 18px), calc(env(safe-area-inset-top) + 22px));
+  left: calc(var(--interior-frame-inset) + 18px);
   display: grid;
   gap: 8px;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
@@ -594,8 +602,8 @@ canvas {
 
 .interior-menu {
   position: absolute;
-  top: max(clamp(36px, 5vh, 50px), calc(env(safe-area-inset-top) + 20px));
-  right: clamp(34px, 3vw, 48px);
+  top: max(calc(var(--interior-frame-inset) + 16px), calc(env(safe-area-inset-top) + 20px));
+  right: calc(var(--interior-frame-inset) + 16px);
   pointer-events: auto;
 }
 
@@ -666,15 +674,17 @@ canvas {
 
 .exit-booth {
   position: absolute;
-  left: clamp(34px, 3vw, 48px);
-  bottom: max(clamp(34px, 5vh, 50px), calc(env(safe-area-inset-bottom) + 20px));
+  left: calc(var(--interior-frame-inset) + 18px);
+  bottom: max(calc(var(--interior-frame-inset) + 16px), calc(env(safe-area-inset-bottom) + 20px));
   border: 0;
   background: none;
-  color: rgba(236, 216, 191, 0.76);
+  color: rgba(245, 224, 198, 0.88);
   font-size: 0.6rem;
   letter-spacing: 0.22em;
   cursor: pointer;
   pointer-events: auto;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.72);
+  transition: color 180ms ease, transform 180ms cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 
 .exit-booth span {
@@ -684,19 +694,23 @@ canvas {
   vertical-align: -2px;
 }
 
-.exit-booth:hover { color: #fff0de; }
+.exit-booth:hover {
+  color: #fff2df;
+  transform: translate3d(-1px, 0, 0);
+}
 
 .interior-controls {
   position: absolute;
   left: 50%;
-  bottom: max(clamp(38px, 5.1vh, 52px), calc(env(safe-area-inset-bottom) + 22px));
+  bottom: max(calc(var(--interior-frame-inset) + 17px), calc(env(safe-area-inset-bottom) + 22px));
   margin: 0;
-  color: rgba(236, 216, 191, 0.64);
-  font-size: 0.56rem;
+  color: rgba(244, 225, 202, 0.74);
+  font-size: clamp(0.52rem, 0.58vw, 0.59rem);
   letter-spacing: 0.29em;
   text-align: center;
   white-space: nowrap;
   transform: translateX(-50%);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.78);
 }
 
 .interior-controls--mobile { display: none; }
@@ -751,7 +765,7 @@ canvas {
 }
 
 @media (max-width: 680px) {
-  .interior-interface::before { inset: 10px; }
+  .interior-interface { --interior-frame-inset: 10px; }
 
   .interaction-counter {
     top: max(25px, calc(env(safe-area-inset-top) + 15px));
@@ -776,6 +790,19 @@ canvas {
 
   .interior-controls--desktop { display: none; }
   .interior-controls--mobile { display: block; }
+}
+
+@media (max-height: 720px) and (min-width: 681px) {
+  .interior-interface { --interior-frame-inset: 11px; }
+
+  .interaction-counter {
+    gap: 5px;
+  }
+
+  .interior-controls {
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

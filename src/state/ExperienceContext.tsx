@@ -7,11 +7,13 @@ export type ObjectId = "memories" | "letters" | "playlist" | "story";
 
 interface ExperienceState {
   phase: Phase;
+  assetsReady: boolean;
   focusedObject: ObjectId | null;
   hoveredObject: ObjectId | null;
   visitedObjects: ObjectId[];
   recenterToken: number;
   finishLoading: () => void;
+  markAssetsReady: () => void;
   beginEntering: () => void;
   arriveInside: () => void;
   focusObject: (id: ObjectId) => void;
@@ -28,6 +30,7 @@ const ExperienceCtx = createContext<ExperienceState | null>(null);
 
 export function ExperienceProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<Phase>(() => (isDirectInteriorPreview() ? "inside" : "loading"));
+  const [assetsReady, setAssetsReady] = useState(() => isDirectInteriorPreview());
   const [focusedObject, setFocusedObject] = useState<ObjectId | null>(null);
   const [hoveredObject, setHoveredObject] = useState<ObjectId | null>(null);
   const [visitedObjects, setVisitedObjects] = useState<ObjectId[]>(() => {
@@ -48,7 +51,8 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
     }
   }, [visitedObjects]);
 
-  const finishLoading = useCallback(() => setPhase("outside"), []);
+  const finishLoading = useCallback(() => setPhase((current) => (current === "loading" ? "outside" : current)), []);
+  const markAssetsReady = useCallback(() => setAssetsReady(true), []);
   const beginEntering = useCallback(() => setPhase((p) => (p === "outside" ? "entering" : p)), []);
   const arriveInside = useCallback(() => setPhase((p) => (p === "entering" ? "inside" : p)), []);
 
@@ -84,11 +88,13 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       phase,
+      assetsReady,
       focusedObject,
       hoveredObject,
       visitedObjects,
       recenterToken,
       finishLoading,
+      markAssetsReady,
       beginEntering,
       arriveInside,
       focusObject,
@@ -102,11 +108,13 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
     }),
     [
       phase,
+      assetsReady,
       focusedObject,
       hoveredObject,
       visitedObjects,
       recenterToken,
       finishLoading,
+      markAssetsReady,
       beginEntering,
       arriveInside,
       focusObject,

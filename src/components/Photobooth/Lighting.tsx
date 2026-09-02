@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { MathUtils, type AmbientLight, type PointLight, type SpotLight } from "three";
 import { OBJECT_POSITIONS } from "./interior/interiorLayout";
 import { ENTRANCE_TUNING } from "./entranceConfig";
+import type { TransitionRef } from "../../hooks/useTransitionDirector";
 
 interface LightingProps {
   active: boolean;
@@ -10,13 +11,14 @@ interface LightingProps {
   revealing: boolean;
   reducedMotion: boolean;
   strength?: number;
+  transitionRef?: TransitionRef;
 }
 function smoothReveal(value: number, start: number, end: number) {
   const normalized = MathUtils.clamp((value - start) / (end - start), 0, 1);
   return normalized * normalized * (3 - 2 * normalized);
 }
 
-export function Lighting({ active, attention, revealing, reducedMotion, strength = 1 }: LightingProps) {
+export function Lighting({ active, attention, revealing, reducedMotion, strength = 1, transitionRef }: LightingProps) {
   const keyRef = useRef<SpotLight>(null);
   const fillRef = useRef<SpotLight>(null);
   const rimRef = useRef<PointLight>(null);
@@ -35,21 +37,22 @@ export function Lighting({ active, attention, revealing, reducedMotion, strength
       : 1;
     const hoverBoost = attention ? ENTRANCE_TUNING.lighting.hoverBoost : 1;
     const breathing = reducedMotion ? 1 : 1 + Math.sin(time * 0.72) * 0.022;
+    const liveStrength = transitionRef ? 1 - transitionRef.current.interiorBlend : strength;
 
     if (keyRef.current) {
-      keyRef.current.intensity = ENTRANCE_TUNING.lighting.keyIntensity * reveal * flicker * hoverBoost * strength;
+      keyRef.current.intensity = ENTRANCE_TUNING.lighting.keyIntensity * reveal * flicker * hoverBoost * liveStrength;
     }
-    if (fillRef.current) fillRef.current.intensity = ENTRANCE_TUNING.lighting.fillIntensity * reveal * strength;
-    if (rimRef.current) rimRef.current.intensity = ENTRANCE_TUNING.lighting.rimIntensity * reveal * strength;
+    if (fillRef.current) fillRef.current.intensity = ENTRANCE_TUNING.lighting.fillIntensity * reveal * liveStrength;
+    if (rimRef.current) rimRef.current.intensity = ENTRANCE_TUNING.lighting.rimIntensity * reveal * liveStrength;
     if (ambientRef.current) {
-      ambientRef.current.intensity = ENTRANCE_TUNING.lighting.ambientIntensity * Math.max(reveal, 0.08) * strength;
+      ambientRef.current.intensity = ENTRANCE_TUNING.lighting.ambientIntensity * Math.max(reveal, 0.08) * liveStrength;
     }
     if (glowRef.current) {
       const base = active ? 9 : ENTRANCE_TUNING.lighting.curtainGlowIntensity;
-      glowRef.current.intensity = base * reveal * breathing * hoverBoost * strength;
+      glowRef.current.intensity = base * reveal * breathing * hoverBoost * liveStrength;
     }
     if (leakRef.current) {
-      leakRef.current.intensity = (active ? 0.75 : attention ? 2.75 : 1.65) * Math.max(reveal, 0.15) * strength;
+      leakRef.current.intensity = (active ? 0.75 : attention ? 2.75 : 1.65) * Math.max(reveal, 0.15) * liveStrength;
     }
   });
 

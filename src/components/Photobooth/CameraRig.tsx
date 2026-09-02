@@ -1,77 +1,249 @@
-import { useEffect, useRef } from "react";
+/* eslint-disable react-hooks/immutability -- React Three Fiber exposes camera as an imperative Three.js object. */
+import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { gsap } from "gsap";
-import { MathUtils, PerspectiveCamera, Quaternion, Vector2, Vector3 } from "three";
+import { CatmullRomCurve3, MathUtils, PerspectiveCamera, Vector2, Vector3 } from "three";
 import { useExperience } from "../../state/ExperienceContext";
+import type { CameraCommandKind, TransitionRef } from "../../hooks/useTransitionDirector";
 import {
   EXTERIOR,
   INTERIOR_CONTROL_LIMITS,
   entryAnchorsForViewport,
-  exitAnchorsForViewport,
   exteriorWaypointForViewport,
-  focusWaypoint,
+  focusAnchorsForViewport,
   interiorWaypointForViewport,
-  type SceneMode,
+  type CameraPose,
   type Waypoint,
 } from "./cameraWaypoints";
 
-function applyFov(target: PerspectiveCamera, fov: number) {
-  target.fov = fov;
-  target.updateProjectionMatrix();
-}
-
 interface CameraRigProps {
-  sceneMode: SceneMode;
-  entryProgress: number;
-  exitProgress: number;
-  dragging: boolean;
-  engaged: boolean;
+  transitionRef: TransitionRef;
+  curtainProgressRef: MutableRefObject<number>;
+  shellRef: RefObject<HTMLDivElement | null>;
   reducedMotion: boolean;
-  coarsePointer: boolean;
+  onTransitionComplete: (requestId: number) => void;
 }
 
-function eased(value: number) {
-  const clamped = MathUtils.clamp(value, 0, 1);
-  return clamped * clamped * (3 - 2 * clamped);
+interface PosePath {
+  positions: CatmullRomCurve3;
+  targets: CatmullRomCurve3;
+  startFov: number;
+  endFov: number;
 }
 
-export function CameraRig({ sceneMode, entryProgress, exitProgress, dragging, engaged, reducedMotion, coarsePointer }: CameraRigProps) {
-  const { camera, gl, pointer, size } = useThree();
-  const { phase, focusedObject, recenterToken } = useExperience();
+interface ActiveMotion {
+  id: number;
+  kind: CameraCommandKind;
+  elapsed: number;
+  delay: number;
+  poseDuration: number;
+  boothDuration: number;
+  closeDuration: number;
+  posePath: PosePath | null;
+  boothPath: PosePath | null;
+  destination: Waypoint;
+}
 
+const ENTER_DURATION = 2.58;
+const EXIT_DURATION = 2.58;
+const ENTER_CAMERA_DELAY = 0.14;
+const EXIT_CURTAIN_CLOSE_DURATION = 0.42;
+const REDUCED_ENTER_DURATION = 0.46;
+const REDUCED_POSE_DURATION = 0.32;
+const tempPosition = new Vector3();
+const tempTarget = new Vector3();
+
+function clamp01(value: number) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function power3InOut(value: number) {
+  const t = clamp01(value);
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function smoothstep(value: number) {
+  const t = clamp01(value);
+  return t * t * (3 - 2 * t);
+}
+
+function pathFromWaypoints(waypoints: readonly Waypoint[]): PosePath {
+  return {
+    positions: new CatmullRomCurve3(waypoints.map((pose) => new Vector3(...pose.position)), false, "centripetal"),
+    targets: new CatmullRomCurve3(waypoints.map((pose) => new Vector3(...pose.lookAt)), false, "centripetal"),
+    startFov: waypoints[0].fov,
+    endFov: waypoints[waypoints.length - 1].fov,
+  };
+}
+
+function curvedPosePath(start: CameraPose, end: Waypoint): PosePath {
+  const startPosition = new Vector3(...start.position);
+  const endPosition = new Vector3(...end.position);
+  const startTarget = new Vector3(...start.target);
+  const endTarget = new Vector3(...end.lookAt);
+  const positionOne = startPosition.clone().lerp(endPosition, 0.32);
+  const positionTwo = startPosition.clone().lerp(endPosition, 0.7);
+  positionOne.y += 0.045;
+  positionTwo.y += 0.025;
+  const targetOne = startTarget.clone().lerp(endTarget, 0.34);
+  const targetTwo = startTarget.clone().lerp(endTarget, 0.72);
+  return {
+    positions: new CatmullRomCurve3([startPosition, positionOne, positionTwo, endPosition], false, "centripetal"),
+    targets: new CatmullRomCurve3([startTarget, targetOne, targetTwo, endTarget], false, "centripetal"),
+    startFov: start.fov ?? end.fov,
+    endFov: end.fov,
+  };
+}
+
+function samePose(position: Vector3, target: Vector3, waypoint: Waypoint) {
+  return position.distanceTo(tempPosition.set(...waypoint.position)) < 0.001
+    && target.distanceTo(tempTarget.set(...waypoint.lookAt)) < 0.001;
+}
+
+export function CameraRig({
+  transitionRef,
+  curtainProgressRef,
+  shellRef,
+  reducedMotion,
+  onTransitionComplete,
+}: CameraRigProps) {
+  const { camera, gl, size } = useThree();
+  const { phase, recenterToken } = useExperience();
   const basePosition = useRef(new Vector3(...EXTERIOR.position));
-  const lookTarget = useRef(new Vector3(...EXTERIOR.lookAt));
+  const baseTarget = useRef(new Vector3(...EXTERIOR.lookAt));
+  const renderedTarget = useRef(new Vector3(...EXTERIOR.lookAt));
   const fovValue = useRef(EXTERIOR.fov);
-  const parallax = useRef(new Vector3());
-  const engagement = useRef(0);
   const orbit = useRef(new Vector2());
   const orbitTarget = useRef(new Vector2());
   const zoom = useRef(0);
-  const tweenRef = useRef<gsap.core.Timeline | null>(null);
+  const activeMotion = useRef<ActiveMotion | null>(null);
+  const handledCommand = useRef(0);
   const hasInit = useRef(false);
   const pointers = useRef(new Map<number, Vector2>());
   const previousPointer = useRef<Vector2 | null>(null);
   const pinchDistance = useRef<number | null>(null);
-  const entryCaptured = useRef(false);
-  const entryStartPosition = useRef(new Vector3());
-  const entryStartTarget = useRef(new Vector3());
-  const entryStartFov = useRef(EXTERIOR.fov);
-  const entryDirection = useRef(new Vector3());
-  const settledPosition = useRef(new Vector3());
-  const settledTarget = useRef(new Vector3());
-  const exitCaptured = useRef(false);
-  const exitStartPosition = useRef(new Vector3());
-  const exitStartTarget = useRef(new Vector3());
-  const exitStartFov = useRef(EXTERIOR.fov);
-  const exitStartQuaternion = useRef(new Quaternion());
-  const exitAlignedQuaternion = useRef(new Quaternion());
-  const exteriorHomeQuaternion = useRef(new Quaternion());
-  const exitDirection = useRef(new Vector3());
-  const quaternionHelper = useRef(new PerspectiveCamera());
-  const exitFromPosition = useRef(new Vector3());
-  const exitToPosition = useRef(new Vector3());
-  const exitFromTarget = useRef(new Vector3());
-  const exitToTarget = useRef(new Vector3());
+
+  const setFov = (value: number) => {
+    fovValue.current = value;
+    if (camera instanceof PerspectiveCamera && Math.abs(camera.fov - value) > 0.0001) {
+      camera.fov = value;
+      camera.updateProjectionMatrix();
+    }
+  };
+
+  const applyBoothProgress = (value: number) => {
+    const progress = clamp01(value);
+    const archiveOpacity = smoothstep((progress - 0.7) / 0.14);
+    transitionRef.current.progress = progress;
+    transitionRef.current.interiorBlend = smoothstep(progress);
+    transitionRef.current.archiveOpacity = archiveOpacity;
+    shellRef.current?.style.setProperty("--archive-opacity", archiveOpacity.toFixed(4));
+  };
+
+  const applyPosePath = (path: PosePath, progress: number) => {
+    const eased = power3InOut(progress);
+    path.positions.getPoint(eased, basePosition.current);
+    path.targets.getPoint(eased, baseTarget.current);
+    renderedTarget.current.copy(baseTarget.current);
+    camera.position.copy(basePosition.current);
+    camera.lookAt(renderedTarget.current);
+    setFov(MathUtils.lerp(path.startFov, path.endFov, eased));
+  };
+
+  const settleAt = (waypoint: Waypoint) => {
+    basePosition.current.set(...waypoint.position);
+    baseTarget.current.set(...waypoint.lookAt);
+    renderedTarget.current.copy(baseTarget.current);
+    camera.position.copy(basePosition.current);
+    camera.lookAt(renderedTarget.current);
+    setFov(waypoint.fov);
+  };
+
+  const beginMotion = () => {
+    const command = transitionRef.current.command;
+    if (!command || command.id === handledCommand.current) return;
+    handledCommand.current = command.id;
+    const livePose: CameraPose = {
+      position: camera.position.toArray() as [number, number, number],
+      target: renderedTarget.current.toArray() as [number, number, number],
+      fov: camera instanceof PerspectiveCamera ? camera.fov : fovValue.current,
+    };
+    orbit.current.set(0, 0);
+    orbitTarget.current.set(0, 0);
+    zoom.current = 0;
+    pointers.current.clear();
+    previousPointer.current = null;
+    pinchDistance.current = null;
+
+    const anchors = entryAnchorsForViewport(size.width, size.height);
+    let destination: Waypoint;
+    let delay = 0;
+    let poseDuration = 0;
+    let boothDuration = 0;
+    let closeDuration = 0;
+    let posePath: PosePath | null = null;
+    let boothPath: PosePath | null = null;
+
+    if (command.kind === "enter") {
+      destination = anchors.interiorHome;
+      delay = reducedMotion ? 0.04 : ENTER_CAMERA_DELAY;
+      boothDuration = reducedMotion ? REDUCED_ENTER_DURATION : ENTER_DURATION;
+      const liveStart: Waypoint = { position: livePose.position, lookAt: livePose.target, fov: livePose.fov ?? anchors.exteriorHome.fov };
+      boothPath = pathFromWaypoints([
+        liveStart,
+        anchors.doorwayApproach,
+        anchors.doorwayThreshold,
+        anchors.interiorEntry,
+        anchors.interiorHome,
+      ]);
+    } else if (command.kind === "focus" && command.objectId) {
+      const focusAnchors = focusAnchorsForViewport(size.width);
+      destination = command.objectId === "memories"
+        ? focusAnchors.memoriesFocus
+        : command.objectId === "letters"
+          ? focusAnchors.lettersFocus
+          : command.objectId === "playlist"
+            ? focusAnchors.playlistFocus
+            : focusAnchors.storyFocus;
+      const distance = camera.position.distanceTo(tempPosition.set(...destination.position));
+      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(distance / 2.25, 1.25, 2.1);
+      posePath = curvedPosePath(livePose, destination);
+    } else if (command.kind === "return") {
+      destination = anchors.interiorHome;
+      const distance = camera.position.distanceTo(tempPosition.set(...destination.position));
+      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.68 + distance * 0.16, 0.72, 1.2);
+      posePath = curvedPosePath(livePose, destination);
+    } else {
+      destination = anchors.exteriorHome;
+      const needsReturn = !samePose(camera.position, renderedTarget.current, anchors.interiorHome);
+      if (needsReturn) {
+        const distance = camera.position.distanceTo(tempPosition.set(...anchors.interiorHome.position));
+        poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.7 + distance * 0.15, 0.75, 1.2);
+        posePath = curvedPosePath(livePose, anchors.interiorHome);
+      }
+      boothDuration = reducedMotion ? REDUCED_ENTER_DURATION : EXIT_DURATION;
+      closeDuration = reducedMotion ? 0.16 : EXIT_CURTAIN_CLOSE_DURATION;
+      boothPath = pathFromWaypoints([
+        anchors.interiorHome,
+        anchors.interiorEntry,
+        anchors.doorwayThreshold,
+        anchors.doorwayApproach,
+        anchors.exteriorHome,
+      ]);
+    }
+
+    activeMotion.current = {
+      id: command.id,
+      kind: command.kind,
+      elapsed: 0,
+      delay,
+      poseDuration,
+      boothDuration,
+      closeDuration,
+      posePath,
+      boothPath,
+      destination,
+    };
+  };
 
   useEffect(() => {
     orbitTarget.current.set(0, 0);
@@ -79,126 +251,44 @@ export function CameraRig({ sceneMode, entryProgress, exitProgress, dragging, en
   }, [recenterToken]);
 
   useEffect(() => {
-    if (!hasInit.current) return;
-
-    if (phase === "entering" || phase === "exiting") {
-      tweenRef.current?.kill();
-      orbitTarget.current.set(0, 0);
-      zoom.current = 0;
-      return;
-    }
-
-    let waypoint: Waypoint;
-    if (phase === "loading" || phase === "outside") {
-      waypoint = exteriorWaypointForViewport(size.width, size.height);
-    } else if (phase === "focusing" || phase === "content") {
-      waypoint = focusedObject
-        ? focusWaypoint(focusedObject, size.width)
-        : interiorWaypointForViewport(size.width, size.height);
-    } else {
-      waypoint = interiorWaypointForViewport(size.width, size.height);
-    }
-
-    if (phase !== "inside") {
-      orbitTarget.current.set(0, 0);
-      zoom.current = 0;
-    }
-
-    tweenRef.current?.kill();
-    const duration = reducedMotion ? 0.22 : phase === "focusing" || phase === "content" ? 0.72 : 0.95;
-    const fovObject = { fov: fovValue.current };
-    const timeline = gsap.timeline();
-    timeline.to(
-      basePosition.current,
-      { x: waypoint.position[0], y: waypoint.position[1], z: waypoint.position[2], duration, ease: "power2.inOut" },
-      0,
-    );
-    timeline.to(
-      lookTarget.current,
-      { x: waypoint.lookAt[0], y: waypoint.lookAt[1], z: waypoint.lookAt[2], duration, ease: "power2.inOut" },
-      0,
-    );
-    timeline.to(
-      fovObject,
-      {
-        fov: waypoint.fov,
-        duration,
-        ease: "power2.inOut",
-        onUpdate() {
-          fovValue.current = fovObject.fov;
-        },
-      },
-      0,
-    );
-    tweenRef.current = timeline;
-
-    return () => {
-      timeline.kill();
-    };
-  }, [focusedObject, phase, recenterToken, reducedMotion, sceneMode, size.height, size.width]);
-
-  useEffect(() => {
     const canvas = gl.domElement;
-    const controlsActive = () => phase === "inside";
-
+    const controlsActive = () => phase === "inside" && !transitionRef.current.active;
     const onPointerDown = (event: PointerEvent) => {
       if (!controlsActive() || (event.pointerType === "mouse" && event.button !== 0)) return;
       pointers.current.set(event.pointerId, new Vector2(event.clientX, event.clientY));
       previousPointer.current = new Vector2(event.clientX, event.clientY);
       canvas.setPointerCapture?.(event.pointerId);
     };
-
     const onPointerMove = (event: PointerEvent) => {
       if (!controlsActive() || !pointers.current.has(event.pointerId)) return;
       pointers.current.set(event.pointerId, new Vector2(event.clientX, event.clientY));
       const points = [...pointers.current.values()];
-
       if (points.length >= 2) {
         const distance = points[0].distanceTo(points[1]);
         if (pinchDistance.current !== null) {
-          zoom.current = MathUtils.clamp(
-            zoom.current + (pinchDistance.current - distance) * 0.006,
-            INTERIOR_CONTROL_LIMITS.zoomOffset[0],
-            INTERIOR_CONTROL_LIMITS.zoomOffset[1],
-          );
+          zoom.current = MathUtils.clamp(zoom.current + (pinchDistance.current - distance) * 0.006, ...INTERIOR_CONTROL_LIMITS.zoomOffset);
         }
         pinchDistance.current = distance;
         return;
       }
-
       if (!previousPointer.current) return;
       const dx = event.clientX - previousPointer.current.x;
       const dy = event.clientY - previousPointer.current.y;
-      orbitTarget.current.x = MathUtils.clamp(
-        orbitTarget.current.x - dx * 0.0015,
-        INTERIOR_CONTROL_LIMITS.azimuth[0],
-        INTERIOR_CONTROL_LIMITS.azimuth[1],
-      );
-      orbitTarget.current.y = MathUtils.clamp(
-        orbitTarget.current.y + dy * 0.0012,
-        INTERIOR_CONTROL_LIMITS.polar[0],
-        INTERIOR_CONTROL_LIMITS.polar[1],
-      );
+      orbitTarget.current.x = MathUtils.clamp(orbitTarget.current.x - dx * 0.0015, ...INTERIOR_CONTROL_LIMITS.azimuth);
+      orbitTarget.current.y = MathUtils.clamp(orbitTarget.current.y + dy * 0.0012, ...INTERIOR_CONTROL_LIMITS.polar);
       previousPointer.current.set(event.clientX, event.clientY);
     };
-
     const onPointerUp = (event: PointerEvent) => {
       pointers.current.delete(event.pointerId);
       pinchDistance.current = null;
       const remaining = [...pointers.current.values()][0];
       previousPointer.current = remaining ? remaining.clone() : null;
     };
-
     const onWheel = (event: WheelEvent) => {
       if (!controlsActive()) return;
       event.preventDefault();
-      zoom.current = MathUtils.clamp(
-        zoom.current + event.deltaY * 0.0012,
-        INTERIOR_CONTROL_LIMITS.zoomOffset[0],
-        INTERIOR_CONTROL_LIMITS.zoomOffset[1],
-      );
+      zoom.current = MathUtils.clamp(zoom.current + event.deltaY * 0.0012, ...INTERIOR_CONTROL_LIMITS.zoomOffset);
     };
-
     canvas.addEventListener("pointerdown", onPointerDown);
     canvas.addEventListener("pointermove", onPointerMove);
     canvas.addEventListener("pointerup", onPointerUp);
@@ -211,277 +301,82 @@ export function CameraRig({ sceneMode, entryProgress, exitProgress, dragging, en
       canvas.removeEventListener("pointercancel", onPointerUp);
       canvas.removeEventListener("wheel", onWheel);
     };
-  }, [gl, phase]);
+  }, [gl, phase, transitionRef]);
 
-  useFrame((state) => {
+  useFrame((_, delta) => {
     if (!hasInit.current) {
-      const initial = sceneMode === "interior"
+      const initial = phase === "inside"
         ? interiorWaypointForViewport(size.width, size.height)
         : exteriorWaypointForViewport(size.width, size.height);
-      basePosition.current.set(...initial.position);
-      lookTarget.current.set(...initial.lookAt);
-      fovValue.current = initial.fov;
+      settleAt(initial);
       hasInit.current = true;
     }
 
-    if (phase === "entering") {
-      const anchors = entryAnchorsForViewport(size.width, size.height);
-      if (!entryCaptured.current) {
-        entryCaptured.current = true;
-        entryStartPosition.current.copy(camera.position);
-        camera.getWorldDirection(entryDirection.current);
-        entryStartTarget.current.copy(camera.position).addScaledVector(entryDirection.current, 2.3);
-        entryStartFov.current = "fov" in camera ? camera.fov : fovValue.current;
-      }
-
-      orbitTarget.current.set(0, 0);
-      orbit.current.set(0, 0);
-      zoom.current = 0;
-      parallax.current.set(0, 0, 0);
-      engagement.current = 0;
-
-      if (reducedMotion) {
-        if (entryProgress < 0.5) {
-          basePosition.current.copy(entryStartPosition.current);
-          lookTarget.current.copy(entryStartTarget.current);
-          fovValue.current = entryStartFov.current;
-        } else {
-          basePosition.current.set(...anchors.interiorHome.position);
-          lookTarget.current.set(...anchors.interiorHome.lookAt);
-          fovValue.current = anchors.interiorHome.fov;
+    beginMotion();
+    const motion = activeMotion.current;
+    if (motion) {
+      motion.elapsed += Math.min(delta, 0.05);
+      if (motion.kind === "enter") {
+        curtainProgressRef.current = smoothstep(motion.elapsed / (reducedMotion ? 0.16 : 0.62));
+        const travel = clamp01((motion.elapsed - motion.delay) / motion.boothDuration);
+        if (motion.boothPath && motion.elapsed >= motion.delay) applyPosePath(motion.boothPath, travel);
+        applyBoothProgress(travel);
+        if (travel >= 1) {
+          settleAt(motion.destination);
+          curtainProgressRef.current = 1;
+          activeMotion.current = null;
+          onTransitionComplete(motion.id);
         }
-      } else if (entryProgress < 0.5 / 2.6) {
-        basePosition.current.copy(entryStartPosition.current);
-        lookTarget.current.copy(entryStartTarget.current);
-        fovValue.current = entryStartFov.current;
-      } else if (entryProgress < 1 / 2.6) {
-        const progress = eased((entryProgress - 0.5 / 2.6) / (0.5 / 2.6));
-        basePosition.current.lerpVectors(
-          entryStartPosition.current,
-          settledPosition.current.set(...anchors.exteriorApproach.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          entryStartTarget.current,
-          settledTarget.current.set(...anchors.exteriorApproach.lookAt),
-          progress,
-        );
-        fovValue.current = MathUtils.lerp(entryStartFov.current, anchors.exteriorApproach.fov, progress);
-      } else if (entryProgress < 1.6 / 2.6) {
-        const progress = eased((entryProgress - 1 / 2.6) / (0.6 / 2.6));
-        basePosition.current.lerpVectors(
-          exitFromPosition.current.set(...anchors.exteriorApproach.position),
-          exitToPosition.current.set(...anchors.curtainThreshold.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          exitFromTarget.current.set(...anchors.exteriorApproach.lookAt),
-          exitToTarget.current.set(...anchors.curtainThreshold.lookAt),
-          progress,
-        );
-        fovValue.current = anchors.curtainThreshold.fov;
-      } else if (entryProgress < 2.1 / 2.6) {
-        const progress = eased((entryProgress - 1.6 / 2.6) / (0.5 / 2.6));
-        basePosition.current.lerpVectors(
-          exitFromPosition.current.set(...anchors.curtainThreshold.position),
-          exitToPosition.current.set(...anchors.interiorEntry.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          exitFromTarget.current.set(...anchors.curtainThreshold.lookAt),
-          exitToTarget.current.set(...anchors.interiorEntry.lookAt),
-          progress,
-        );
-        fovValue.current = anchors.interiorEntry.fov;
-      } else {
-        const progress = eased((entryProgress - 2.1 / 2.6) / (0.5 / 2.6));
-        basePosition.current.lerpVectors(
-          exitFromPosition.current.set(...anchors.interiorEntry.position),
-          exitToPosition.current.set(...anchors.interiorHome.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          exitFromTarget.current.set(...anchors.interiorEntry.lookAt),
-          exitToTarget.current.set(...anchors.interiorHome.lookAt),
-          progress,
-        );
-        fovValue.current = MathUtils.lerp(anchors.interiorEntry.fov, anchors.interiorHome.fov, progress);
+        return;
       }
 
-      camera.position.copy(basePosition.current);
-      camera.lookAt(lookTarget.current);
-      if ("fov" in camera && camera.fov !== fovValue.current) applyFov(camera as PerspectiveCamera, fovValue.current);
+      if (motion.kind === "focus" || motion.kind === "return") {
+        const progress = clamp01(motion.elapsed / Math.max(motion.poseDuration, 0.001));
+        if (motion.posePath) applyPosePath(motion.posePath, progress);
+        if (progress >= 1) {
+          settleAt(motion.destination);
+          activeMotion.current = null;
+          onTransitionComplete(motion.id);
+        }
+        return;
+      }
+
+      const poseProgress = motion.poseDuration > 0 ? clamp01(motion.elapsed / motion.poseDuration) : 1;
+      if (poseProgress < 1 && motion.posePath) {
+        applyPosePath(motion.posePath, poseProgress);
+        applyBoothProgress(1);
+        curtainProgressRef.current = 1;
+        return;
+      }
+      if (motion.poseDuration > 0 && motion.posePath) settleAt(entryAnchorsForViewport(size.width, size.height).interiorHome);
+      const boothElapsed = motion.elapsed - motion.poseDuration;
+      const boothProgress = clamp01(boothElapsed / motion.boothDuration);
+      if (boothProgress < 1) {
+        if (motion.boothPath) applyPosePath(motion.boothPath, boothProgress);
+        applyBoothProgress(1 - boothProgress);
+        curtainProgressRef.current = 1;
+        return;
+      }
+      settleAt(motion.destination);
+      applyBoothProgress(0);
+      const closeProgress = clamp01((boothElapsed - motion.boothDuration) / Math.max(motion.closeDuration, 0.001));
+      curtainProgressRef.current = 1 - power3InOut(closeProgress);
+      if (closeProgress >= 1) {
+        curtainProgressRef.current = 0;
+        activeMotion.current = null;
+        onTransitionComplete(motion.id);
+      }
       return;
     }
-
-    entryCaptured.current = false;
-
-    if (phase === "exiting") {
-      const anchors = exitAnchorsForViewport(size.width, size.height);
-      const helper = quaternionHelper.current;
-
-      if (!exitCaptured.current) {
-        exitCaptured.current = true;
-        exitStartPosition.current.copy(camera.position);
-        exitStartQuaternion.current.copy(camera.quaternion);
-        camera.getWorldDirection(exitDirection.current);
-        exitStartTarget.current.copy(camera.position).addScaledVector(exitDirection.current, 2.3);
-        exitStartFov.current = "fov" in camera ? camera.fov : fovValue.current;
-
-        helper.position.set(...anchors.interiorExitAligned.position);
-        helper.lookAt(new Vector3(...anchors.interiorExitAligned.lookAt));
-        exitAlignedQuaternion.current.copy(helper.quaternion);
-        helper.position.set(...anchors.exteriorHome.position);
-        helper.lookAt(new Vector3(...anchors.exteriorHome.lookAt));
-        exteriorHomeQuaternion.current.copy(helper.quaternion);
-      }
-
-      orbitTarget.current.set(0, 0);
-      orbit.current.set(0, 0);
-      zoom.current = 0;
-      parallax.current.set(0, 0, 0);
-      engagement.current = 0;
-
-      const prepareEnd = 0.25 / 3.1;
-      const recenterEnd = 0.7 / 3.1;
-      const interiorThresholdEnd = 1.35 / 3.1;
-      const reducedSwap = 1.4 / 3.1;
-      const exteriorThresholdEnd = 1.65 / 3.1;
-      const exteriorClearEnd = 2.2 / 3.1;
-      const settleEnd = 2.85 / 3.1;
-
-      if (reducedMotion) {
-        if (exitProgress < reducedSwap) {
-          basePosition.current.copy(exitStartPosition.current);
-          lookTarget.current.copy(exitStartTarget.current);
-          fovValue.current = exitStartFov.current;
-          camera.quaternion.copy(exitStartQuaternion.current);
-        } else {
-          basePosition.current.set(...anchors.exteriorHome.position);
-          lookTarget.current.set(...anchors.exteriorHome.lookAt);
-          fovValue.current = anchors.exteriorHome.fov;
-          camera.quaternion.copy(exteriorHomeQuaternion.current);
-        }
-      } else if (exitProgress < prepareEnd) {
-        basePosition.current.copy(exitStartPosition.current);
-        lookTarget.current.copy(exitStartTarget.current);
-        fovValue.current = exitStartFov.current;
-        camera.quaternion.copy(exitStartQuaternion.current);
-      } else if (exitProgress < recenterEnd) {
-        const progress = eased((exitProgress - prepareEnd) / (recenterEnd - prepareEnd));
-        basePosition.current.lerpVectors(
-          exitStartPosition.current,
-          exitToPosition.current.set(...anchors.interiorExitAligned.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          exitStartTarget.current,
-          exitToTarget.current.set(...anchors.interiorExitAligned.lookAt),
-          progress,
-        );
-        fovValue.current = MathUtils.lerp(exitStartFov.current, anchors.interiorExitAligned.fov, progress);
-        camera.quaternion.slerpQuaternions(exitStartQuaternion.current, exitAlignedQuaternion.current, progress);
-      } else if (exitProgress < interiorThresholdEnd) {
-        const progress = eased((exitProgress - recenterEnd) / (interiorThresholdEnd - recenterEnd));
-        basePosition.current.lerpVectors(
-          exitFromPosition.current.set(...anchors.interiorExitAligned.position),
-          exitToPosition.current.set(...anchors.interiorThreshold.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          exitFromTarget.current.set(...anchors.interiorExitAligned.lookAt),
-          exitToTarget.current.set(...anchors.interiorThreshold.lookAt),
-          progress,
-        );
-        fovValue.current = anchors.interiorThreshold.fov;
-        camera.quaternion.copy(exitAlignedQuaternion.current);
-      } else if (exitProgress < exteriorThresholdEnd) {
-        const progress = eased(
-          (exitProgress - interiorThresholdEnd) / (exteriorThresholdEnd - interiorThresholdEnd),
-        );
-        basePosition.current.lerpVectors(
-          exitFromPosition.current.set(...anchors.interiorThreshold.position),
-          exitToPosition.current.set(...anchors.exteriorThreshold.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          exitFromTarget.current.set(...anchors.interiorThreshold.lookAt),
-          exitToTarget.current.set(...anchors.exteriorThreshold.lookAt),
-          progress,
-        );
-        fovValue.current = anchors.exteriorThreshold.fov;
-        camera.quaternion.copy(exitAlignedQuaternion.current);
-      } else if (exitProgress < exteriorClearEnd) {
-        const progress = eased(
-          (exitProgress - exteriorThresholdEnd) / (exteriorClearEnd - exteriorThresholdEnd),
-        );
-        basePosition.current.lerpVectors(
-          exitFromPosition.current.set(...anchors.exteriorThreshold.position),
-          exitToPosition.current.set(...anchors.exteriorClear.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          exitFromTarget.current.set(...anchors.exteriorThreshold.lookAt),
-          exitToTarget.current.set(...anchors.exteriorClear.lookAt),
-          progress,
-        );
-        fovValue.current = anchors.exteriorClear.fov;
-        camera.quaternion.copy(exitAlignedQuaternion.current);
-      } else if (exitProgress < settleEnd) {
-        const progress = eased((exitProgress - exteriorClearEnd) / (settleEnd - exteriorClearEnd));
-        basePosition.current.lerpVectors(
-          exitFromPosition.current.set(...anchors.exteriorClear.position),
-          exitToPosition.current.set(...anchors.exteriorHome.position),
-          progress,
-        );
-        lookTarget.current.lerpVectors(
-          exitFromTarget.current.set(...anchors.exteriorClear.lookAt),
-          exitToTarget.current.set(...anchors.exteriorHome.lookAt),
-          progress,
-        );
-        fovValue.current = MathUtils.lerp(anchors.exteriorClear.fov, anchors.exteriorHome.fov, progress);
-        camera.quaternion.slerpQuaternions(exitAlignedQuaternion.current, exteriorHomeQuaternion.current, progress);
-      } else {
-        basePosition.current.set(...anchors.exteriorHome.position);
-        lookTarget.current.set(...anchors.exteriorHome.lookAt);
-        fovValue.current = anchors.exteriorHome.fov;
-        camera.quaternion.copy(exteriorHomeQuaternion.current);
-      }
-
-      camera.position.copy(basePosition.current);
-      if ("fov" in camera && camera.fov !== fovValue.current) applyFov(camera as PerspectiveCamera, fovValue.current);
-      return;
-    }
-
-    exitCaptured.current = false;
-
-    const exterior = phase === "loading" || phase === "outside";
-    const allowPointerMotion = !reducedMotion && !coarsePointer;
-    let targetParallax = { x: 0, y: 0 };
-    if (exterior && !dragging && allowPointerMotion) targetParallax = { x: pointer.x * 0.075, y: pointer.y * 0.028 };
-    parallax.current.x = MathUtils.lerp(parallax.current.x, targetParallax.x, 0.04);
-    parallax.current.y = MathUtils.lerp(parallax.current.y, targetParallax.y, 0.04);
 
     orbit.current.lerp(orbitTarget.current, reducedMotion ? 1 : 0.1);
-    engagement.current = MathUtils.lerp(engagement.current, exterior && engaged ? 1 : 0, reducedMotion ? 1 : 0.055);
-    const idleX = exterior && !reducedMotion ? Math.sin(state.clock.elapsedTime * 0.16) * 0.012 : 0;
-    const idleY = exterior && !reducedMotion ? Math.sin(state.clock.elapsedTime * 0.12 + 1.2) * 0.008 : 0;
     const controlsEnabled = phase === "inside";
     const orbitX = controlsEnabled ? orbit.current.x * 5.2 : 0;
     const orbitY = controlsEnabled ? orbit.current.y * 3.2 : 0;
-
-    camera.position.set(
-      basePosition.current.x + parallax.current.x + idleX + orbitX,
-      basePosition.current.y + parallax.current.y + idleY + orbitY,
-      basePosition.current.z - engagement.current * 0.085 + (controlsEnabled ? zoom.current : 0),
-    );
-    camera.lookAt(
-      lookTarget.current.x + orbitX * 0.18,
-      lookTarget.current.y + orbitY * 0.18,
-      lookTarget.current.z,
-    );
-
-    if ("fov" in camera && camera.fov !== fovValue.current) applyFov(camera as PerspectiveCamera, fovValue.current);
+    camera.position.set(basePosition.current.x + orbitX, basePosition.current.y + orbitY, basePosition.current.z + (controlsEnabled ? zoom.current : 0));
+    renderedTarget.current.set(baseTarget.current.x + orbitX * 0.18, baseTarget.current.y + orbitY * 0.18, baseTarget.current.z);
+    camera.lookAt(renderedTarget.current);
+    setFov(fovValue.current);
   });
 
   return null;

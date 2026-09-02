@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, type MutableRefObject, type ReactNode } from "react";
 import { ContactShadows, Sparkles } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { MathUtils, type Group } from "three";
@@ -9,6 +9,7 @@ import { Curtains } from "../components/Photobooth/Curtains";
 import { ExteriorEnvironment } from "../components/Photobooth/ExteriorEnvironment";
 import { Lighting } from "../components/Photobooth/Lighting";
 import { ENTRANCE_TUNING } from "../components/Photobooth/entranceConfig";
+import type { TransitionRef } from "../hooks/useTransitionDirector";
 
 function ExteriorBoothStage({ children, reducedMotion }: { children: ReactNode; reducedMotion: boolean }) {
   const groupRef = useRef<Group>(null);
@@ -25,10 +26,9 @@ function ExteriorBoothStage({ children, reducedMotion }: { children: ReactNode; 
 
 interface ExteriorPhotoboothSceneProps {
   visible?: boolean;
-  lightingStrength?: number;
+  transitionRef: TransitionRef;
   phase: Phase;
-  progress: number;
-  curtainOpacity?: number;
+  curtainProgressRef: MutableRefObject<number>;
   dragging: boolean;
   engaged: boolean;
   revealing: boolean;
@@ -42,10 +42,9 @@ interface ExteriorPhotoboothSceneProps {
 
 export function ExteriorPhotoboothScene({
   visible = true,
-  lightingStrength = 1,
+  transitionRef,
   phase,
-  progress,
-  curtainOpacity = 1,
+  curtainProgressRef,
   dragging,
   engaged,
   revealing,
@@ -63,8 +62,7 @@ export function ExteriorPhotoboothScene({
         <BoothBody />
         <BoothMarquee />
         <Curtains
-          progress={progress}
-          opacity={curtainOpacity}
+          progressRef={curtainProgressRef}
           dragging={dragging}
           interactive={curtainInteractive}
           highlighted={engaged || phase === "entering"}
@@ -79,7 +77,7 @@ export function ExteriorPhotoboothScene({
         attention={engaged || phase === "entering"}
         revealing={revealing}
         reducedMotion={reducedMotion}
-        strength={lightingStrength}
+        transitionRef={transitionRef}
       />
       <ContactShadows
         position={[0, -2.34, -0.18]}

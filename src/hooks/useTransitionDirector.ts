@@ -1,189 +1,163 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { gsap } from "gsap";
-import type { Phase } from "../state/ExperienceContext";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject, type RefObject } from "react";
+import type { ObjectId, Phase } from "../state/ExperienceContext";
 import type { SceneMode } from "../components/Photobooth/cameraWaypoints";
-import { isCurtainDebug, isDirectInteriorPreview, isExitDebug, isTransitionDebug } from "../utils/devScenePreview";
+import { isDirectInteriorPreview } from "../utils/devScenePreview";
 
-const ENTRY_DURATION = 2.6;
-const REDUCED_ENTRY_DURATION = 0.48;
-const DEBUG_ENTRY_DURATION = 6;
-const INTERIOR_HANDOFF_PROGRESS = 2.1 / ENTRY_DURATION;
-const EXIT_DURATION = 3.1;
-const REDUCED_EXIT_DURATION = 0.48;
-const DEBUG_EXIT_DURATION = 7;
-const EXIT_SCENE_SWAP_PROGRESS = 1.4 / EXIT_DURATION;
-const EXIT_CURTAIN_CLOSE_PROGRESS = 2.45 / EXIT_DURATION;
+export type CameraState =
+  | "outside"
+  | "entering"
+  | "inside"
+  | "focusing"
+  | "focused"
+  | "returning"
+  | "exiting";
 
-function smoothstep(value: number) {
-  const clamped = Math.min(1, Math.max(0, value));
-  return clamped * clamped * (3 - 2 * clamped);
+export type CameraCommandKind = "enter" | "focus" | "return" | "exit";
+
+export interface CameraCommand {
+  id: number;
+  kind: CameraCommandKind;
+  objectId: ObjectId | null;
 }
+
+export interface TransitionValues {
+  active: boolean;
+  state: CameraState;
+  direction: "idle" | "entering" | "exiting";
+  /** One authoritative booth coordinate: 0 is outside and 1 is inside. */
+  progress: number;
+  interiorBlend: number;
+  archiveOpacity: number;
+  command: CameraCommand | null;
+}
+
+export type TransitionRef = MutableRefObject<TransitionValues>;
 
 interface TransitionDirectorOptions {
   phase: Phase;
-  reducedMotion: boolean;
   beginEntering: () => void;
   arriveInside: () => void;
+  openContent: () => void;
+  finishRecenter: () => void;
   beginExiting: () => void;
   finishExiting: () => void;
-  curtainProgress: number;
-  setCurtainProgress: (progress: number) => void;
+  curtainProgressRef: MutableRefObject<number>;
+  shellRef: RefObject<HTMLDivElement | null>;
 }
 
 export function useTransitionDirector({
   phase,
-  reducedMotion,
   beginEntering,
   arriveInside,
+  openContent,
+  finishRecenter,
   beginExiting,
   finishExiting,
-  curtainProgress,
-  setCurtainProgress,
+  curtainProgressRef,
+  shellRef,
 }: TransitionDirectorOptions) {
-  const [sceneMode, setSceneMode] = useState<SceneMode>(() => (isDirectInteriorPreview() ? "interior" : "exterior"));
-  const [entryProgress, setEntryProgress] = useState(0);
-  const [exitProgress, setExitProgress] = useState(0);
+  const directInterior = isDirectInteriorPreview();
+  const [sceneMode, setSceneMode] = useState<SceneMode>(() => (directInterior ? "interior" : "exterior"));
+  const transitionRef = useRef<TransitionValues>({
+    active: false,
+    state: directInterior ? "inside" : "outside",
+    direction: "idle",
+    progress: directInterior ? 1 : 0,
+    interiorBlend: directInterior ? 1 : 0,
+    archiveOpacity: directInterior ? 1 : 0,
+    command: null,
+  });
   const inputLocked = useRef(false);
-  const entryTimeline = useRef<gsap.core.Timeline | null>(null);
-  const exitTimeline = useRef<gsap.core.Timeline | null>(null);
-  const debugTransition = isTransitionDebug();
-  const debugExit = isExitDebug();
-  const debugCurtain = isCurtainDebug();
-  const entryDuration = reducedMotion
-    ? REDUCED_ENTRY_DURATION
-    : debugCurtain || debugTransition
-      ? DEBUG_ENTRY_DURATION
-      : ENTRY_DURATION;
-  const exitDuration = reducedMotion
-    ? REDUCED_EXIT_DURATION
-    : debugCurtain || debugExit
-      ? DEBUG_EXIT_DURATION
-      : EXIT_DURATION;
+  const requestId = useRef(0);
+
+  const issueCommand = useCallback((kind: CameraCommandKind, objectId: ObjectId | null = null) => {
+    requestId.current += 1;
+    const state: CameraState = kind === "enter"
+      ? "entering"
+      : kind === "focus"
+        ? "focusing"
+        : kind === "return"
+          ? "returning"
+          : "exiting";
+    transitionRef.current.active = true;
+    transitionRef.current.state = state;
+    transitionRef.current.direction = kind === "enter" ? "entering" : kind === "exit" ? "exiting" : "idle";
+    transitionRef.current.command = { id: requestId.current, kind, objectId };
+    inputLocked.current = true;
+    document.body.style.cursor = "auto";
+    shellRef.current?.classList.add("canvas-shell--transition-active");
+  }, [shellRef]);
 
   const enterBooth = useCallback(() => {
     if (inputLocked.current || phase !== "outside") return;
-    inputLocked.current = true;
-    entryTimeline.current?.kill();
-    exitTimeline.current?.kill();
-    document.body.style.cursor = "auto";
+    issueCommand("enter");
     beginEntering();
-    setEntryProgress(0);
+  }, [beginEntering, issueCommand, phase]);
 
-    const duration = entryDuration;
-    const driver = { progress: 0 };
-    const curtainStart = curtainProgress;
-    let lastCurtainLog = -1;
-    const logPhase = (name: string) => {
-      if (debugCurtain || debugTransition) console.info(`[transition] ${name} (${driver.progress.toFixed(3)})`);
-    };
+  const focusCamera = useCallback((objectId: ObjectId) => {
+    if (transitionRef.current.state === "focusing" && transitionRef.current.command?.objectId === objectId) return;
+    issueCommand("focus", objectId);
+  }, [issueCommand]);
 
-    logPhase("activation");
-    const timeline = gsap.timeline({
-      onComplete() {
-        setEntryProgress(1);
-        setCurtainProgress(1);
-        arriveInside();
-        logPhase("inside");
-      },
-    });
-    timeline.to(driver, {
-      progress: 1,
-      duration,
-      ease: "none",
-      onUpdate() {
-        setEntryProgress(driver.progress);
-        const curtainT = smoothstep((driver.progress - 0.2 / ENTRY_DURATION) / (1.2 / ENTRY_DURATION));
-        setCurtainProgress(curtainStart + (1 - curtainStart) * curtainT);
-        if (debugCurtain) {
-          const step = Math.floor(curtainT * 10);
-          if (step !== lastCurtainLog) {
-            lastCurtainLog = step;
-            console.info(`[curtain] opening ${Math.round(curtainT * 100)}%`);
-          }
-        }
-      },
-    }, 0);
-    timeline.call(() => logPhase("approach"), [], duration * (0.25 / ENTRY_DURATION));
-    timeline.call(() => logPhase("threshold"), [], duration * (1 / ENTRY_DURATION));
-    timeline.call(() => {
-      logPhase("interior handoff");
-      setSceneMode("interior");
-    }, [], duration * (reducedMotion ? 0.5 : INTERIOR_HANDOFF_PROGRESS));
-    timeline.call(() => logPhase("interior reveal"), [], duration * (1.35 / ENTRY_DURATION));
-    timeline.call(() => logPhase("settle"), [], duration * (2.1 / ENTRY_DURATION));
-    entryTimeline.current = timeline;
-  }, [arriveInside, beginEntering, curtainProgress, debugCurtain, debugTransition, entryDuration, phase, reducedMotion, setCurtainProgress]);
+  const returnCamera = useCallback(() => {
+    if (transitionRef.current.state === "returning") return;
+    issueCommand("return");
+  }, [issueCommand]);
 
   const exitBooth = useCallback(() => {
-    if (inputLocked.current || phase === "loading" || phase === "outside" || phase === "entering" || phase === "exiting") return;
-    inputLocked.current = true;
-    entryTimeline.current?.kill();
-    exitTimeline.current?.kill();
-    document.body.style.cursor = "auto";
-    setSceneMode("exterior");
+    if (inputLocked.current || (phase !== "inside" && phase !== "focusing" && phase !== "content")) return;
+    issueCommand("exit");
     beginExiting();
-    setExitProgress(0);
+  }, [beginExiting, issueCommand, phase]);
 
-    const duration = exitDuration;
-    const driver = { progress: 0 };
-    const curtainStart = curtainProgress;
-    let lastCurtainLog = -1;
-    const logPhase = (name: string) => {
-      if (debugCurtain || debugExit) console.info(`[exit] ${name} (${driver.progress.toFixed(3)})`);
-    };
+  const completeCameraTransition = useCallback((id: number) => {
+    const current = transitionRef.current;
+    if (!current.active || current.command?.id !== id) return;
+    const kind = current.command.kind;
+    current.active = false;
+    current.direction = "idle";
+    current.command = null;
+    shellRef.current?.classList.remove("canvas-shell--transition-active");
+    inputLocked.current = false;
 
-    logPhase("prepare");
-    const timeline = gsap.timeline({
-      onComplete() {
-        setExitProgress(1);
-        setCurtainProgress(0);
-        finishExiting();
-        logPhase("outside");
-      },
-    });
-    timeline.to(driver, {
-      progress: 1,
-      duration,
-      ease: "none",
-      onUpdate() {
-        setExitProgress(driver.progress);
-        const curtainT = smoothstep((driver.progress - EXIT_CURTAIN_CLOSE_PROGRESS) / (1 - EXIT_CURTAIN_CLOSE_PROGRESS));
-        setCurtainProgress(curtainStart * (1 - curtainT));
-        if (debugCurtain) {
-          const step = Math.floor(curtainT * 10);
-          if (step !== lastCurtainLog) {
-            lastCurtainLog = step;
-            console.info(`[curtain] closing ${Math.round(curtainT * 100)}%`);
-          }
-        }
-      },
-    }, 0);
-    timeline.call(() => logPhase("recenter inside"), [], duration * (0.25 / EXIT_DURATION));
-    timeline.call(() => logPhase("straight interior threshold"), [], duration * (0.7 / EXIT_DURATION));
-    timeline.call(() => logPhase("curtain threshold"), [], duration * EXIT_SCENE_SWAP_PROGRESS);
-    timeline.call(() => logPhase("straight exterior clear"), [], duration * (1.45 / EXIT_DURATION));
-    timeline.call(() => logPhase("exterior settle"), [], duration * (2.2 / EXIT_DURATION));
-    timeline.call(() => logPhase("curtain close"), [], duration * EXIT_CURTAIN_CLOSE_PROGRESS);
-    exitTimeline.current = timeline;
-  }, [beginExiting, curtainProgress, debugCurtain, debugExit, exitDuration, finishExiting, phase, setCurtainProgress]);
+    if (kind === "enter") {
+      current.state = "inside";
+      setSceneMode("interior");
+      arriveInside();
+    } else if (kind === "focus") {
+      current.state = "focused";
+      openContent();
+    } else if (kind === "return") {
+      current.state = "inside";
+      finishRecenter();
+    } else {
+      current.state = "outside";
+      setSceneMode("exterior");
+      finishExiting();
+    }
+  }, [arriveInside, finishExiting, finishRecenter, openContent, shellRef]);
 
   useEffect(() => {
-    if (phase === "outside" || phase === "inside") inputLocked.current = false;
-  }, [phase]);
+    const initial = directInterior ? 1 : 0;
+    curtainProgressRef.current = initial;
+    shellRef.current?.style.setProperty("--archive-opacity", String(initial));
+  }, [curtainProgressRef, directInterior, shellRef]);
 
   useEffect(() => () => {
-    entryTimeline.current?.kill();
-    exitTimeline.current?.kill();
+    requestId.current += 1;
+    transitionRef.current.active = false;
+    transitionRef.current.command = null;
+    shellRef.current?.classList.remove("canvas-shell--transition-active");
     document.body.style.cursor = "auto";
-  }, []);
+  }, [shellRef]);
 
   return {
     sceneMode,
-    entryProgress,
-    entryDuration,
-    exitProgress,
-    exitDuration,
+    transitionRef,
     enterBooth,
+    focusCamera,
+    returnCamera,
     exitBooth,
+    completeCameraTransition,
   };
 }

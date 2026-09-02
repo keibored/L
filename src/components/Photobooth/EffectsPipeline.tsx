@@ -14,7 +14,9 @@ const FOCUS_DISTANCE = {
 export function EffectsPipeline() {
   const { phase } = useExperience();
   const focused = phase === "focusing" || phase === "content";
-  const interior = phase === "inside" || phase === "entering" || phase === "exiting";
+  // Keep exterior focus through entry; the interior profile switches only
+  // after the matching archive layer fully covers the viewport.
+  const interior = phase === "inside" || phase === "focusing" || phase === "content" || phase === "exiting";
 
   const focusDistance = focused ? FOCUS_DISTANCE.focused : interior ? FOCUS_DISTANCE.interior : FOCUS_DISTANCE.exterior;
   // Exterior keeps deep focus (near-zero bokeh) — it's a wide establishing shot,

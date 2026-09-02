@@ -6,11 +6,10 @@ const CLICK_MOVE_THRESHOLD = 4;
 const READY_THRESHOLD = 0.995;
 
 export function useCurtainAnimation(reducedMotion = false) {
-  const [progress, setProgress] = useState(0);
-  const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
 
   const progressRef = useRef(0);
+  const readyRef = useRef(false);
   const dragStart = useRef<{ x: number; progress: number } | null>(null);
   const suppressClickRef = useRef(false);
   const tweenRef = useRef<gsap.core.Tween | null>(null);
@@ -18,8 +17,7 @@ export function useCurtainAnimation(reducedMotion = false) {
   const applyProgress = useCallback((value: number) => {
     const clamped = Math.min(1, Math.max(0, value));
     progressRef.current = clamped;
-    setProgress(clamped);
-    setReady(clamped >= READY_THRESHOLD);
+    readyRef.current = clamped >= READY_THRESHOLD;
   }, []);
 
   const animateTo = useCallback(
@@ -39,6 +37,13 @@ export function useCurtainAnimation(reducedMotion = false) {
   );
 
   const closeCurtain = useCallback((duration?: number) => animateTo(0, duration), [animateTo]);
+
+  const takeProgrammaticControl = useCallback(() => {
+    tweenRef.current?.kill();
+    tweenRef.current = null;
+    dragStart.current = null;
+    setDragging(false);
+  }, []);
 
   const handlePointerDown = useCallback((clientX: number) => {
     tweenRef.current?.kill();
@@ -79,18 +84,18 @@ export function useCurtainAnimation(reducedMotion = false) {
   }, []);
 
   useEffect(() => {
-    if (ready || dragging) return;
+    if (readyRef.current || dragging) return;
     const idle = setTimeout(() => applyProgress(0.04), 1800);
     return () => clearTimeout(idle);
-  }, [ready, dragging, applyProgress]);
+  }, [dragging, applyProgress]);
 
   return {
-    progress,
-    ready,
+    progressRef,
     dragging,
     handlePointerDown,
     handleClick,
     closeCurtain,
     setCurtainProgress: applyProgress,
+    takeProgrammaticControl,
   };
 }

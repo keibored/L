@@ -6,7 +6,7 @@ import { useEntrancePreferences } from "../hooks/useEntrancePreferences";
 import { ENTRANCE_TUNING } from "../components/Photobooth/entranceConfig";
 
 export function LoadingScene() {
-  const { finishLoading } = useExperience();
+  const { assetsReady, finishLoading } = useExperience();
   const [percent, setPercent] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [sequenceComplete, setSequenceComplete] = useState(false);
@@ -49,7 +49,7 @@ export function LoadingScene() {
   }, [reducedMotion]);
 
   useEffect(() => {
-    if (!sequenceComplete || exitStarted.current) return;
+    if (!sequenceComplete || !assetsReady || assetsLoading || exitStarted.current) return;
 
     const finishReveal = () => {
       if (exitStarted.current) return;
@@ -63,14 +63,8 @@ export function LoadingScene() {
       });
     };
 
-    if (!assetsLoading) {
-      finishReveal();
-      return;
-    }
-
-    const fallback = window.setTimeout(finishReveal, 1200);
-    return () => window.clearTimeout(fallback);
-  }, [assetsLoading, finishLoading, reducedMotion, sequenceComplete]);
+    finishReveal();
+  }, [assetsLoading, assetsReady, finishLoading, reducedMotion, sequenceComplete]);
 
   useEffect(() => () => {
     exitTween.current?.kill();

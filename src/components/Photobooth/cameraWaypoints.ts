@@ -28,9 +28,15 @@ export function interiorWaypointForViewport(width: number, height: number): Wayp
     return interiorWaypointToWorld({ position: [0, 0.02, portraitDistance], lookAt: [0, -0.32, -0.2], fov: 58 });
   }
   if (width <= 1024 || aspect < 1.2) {
-    return interiorWaypointToWorld({ position: [0.18, 0.12, 6.9], lookAt: [0, -0.36, -0.18], fov: 48 });
+    return interiorWaypointToWorld({ position: [0, 0.12, 6.9], lookAt: [0, -0.36, -0.18], fov: 48 });
   }
-  return interiorWaypointToWorld({ position: [0.38, 0.12, 6.35], lookAt: [0, -0.4, -0.16], fov: 44 });
+  return interiorWaypointToWorld({ position: [0, 0.12, 6.35], lookAt: [0, -0.4, -0.16], fov: 44 });
+}
+
+export interface CameraPose {
+  position: readonly [number, number, number];
+  target: readonly [number, number, number];
+  fov?: number;
 }
 
 const EXIT_VIEW_DISTANCE = 2.3;
@@ -51,21 +57,10 @@ function centeredTransitionAnchor(z: number): Waypoint {
 export function entryAnchorsForViewport(width: number, height: number) {
   return {
     exteriorHome: exteriorWaypointForViewport(width, height),
-    exteriorApproach: centeredTransitionAnchor(CURTAIN_CENTER.z + 3.4884),
-    curtainThreshold: centeredTransitionAnchor(CURTAIN_CENTER.z - 0.3816),
+    doorwayApproach: centeredTransitionAnchor(CURTAIN_CENTER.z + 3.4884),
+    doorwayThreshold: centeredTransitionAnchor(CURTAIN_CENTER.z - 0.3816),
     interiorEntry: centeredTransitionAnchor(CURTAIN_CENTER.z - 1.4116),
     interiorHome: interiorWaypointForViewport(width, height),
-  } as const;
-}
-
-export function exitAnchorsForViewport(width: number, height: number) {
-  return {
-    interiorHome: interiorWaypointForViewport(width, height),
-    interiorExitAligned: centeredTransitionAnchor(CURTAIN_CENTER.z - 1.4116),
-    interiorThreshold: centeredTransitionAnchor(CURTAIN_CENTER.z - 0.3816),
-    exteriorThreshold: centeredTransitionAnchor(CURTAIN_CENTER.z + 0.7584),
-    exteriorClear: centeredTransitionAnchor(CURTAIN_CENTER.z + 3.4884),
-    exteriorHome: exteriorWaypointForViewport(width, height),
   } as const;
 }
 
@@ -77,6 +72,15 @@ export function focusWaypoint(id: ObjectId, width: number): Waypoint {
     lookAt: [x * 0.86, y + 0.04, z],
     fov: mobile ? 42 : 36,
   });
+}
+
+export function focusAnchorsForViewport(width: number) {
+  return {
+    memoriesFocus: focusWaypoint("memories", width),
+    lettersFocus: focusWaypoint("letters", width),
+    playlistFocus: focusWaypoint("playlist", width),
+    storyFocus: focusWaypoint("story", width),
+  } as const;
 }
 
 export const INTERIOR_CONTROL_LIMITS = {

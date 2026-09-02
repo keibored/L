@@ -1,11 +1,11 @@
-import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Preload } from "@react-three/drei";
 import { ACESFilmicToneMapping, Color, Fog } from "three";
 import { EffectsPipeline } from "../components/Photobooth/EffectsPipeline";
 import { useCurtainAnimation } from "../hooks/useCurtainAnimation";
 import { useEntrancePreferences } from "../hooks/useEntrancePreferences";
-import { useTransitionDirector } from "../hooks/useTransitionDirector";
+import { useTransitionDirector, type TransitionRef } from "../hooks/useTransitionDirector";
 import { useExperience } from "../state/ExperienceContext";
 import { CameraRig } from "../components/Photobooth/CameraRig";
 import { EXTERIOR } from "../components/Photobooth/cameraWaypoints";
@@ -13,7 +13,7 @@ import { ENTRANCE_TUNING } from "../components/Photobooth/entranceConfig";
 import { InterfaceOverlay } from "../components/Photobooth/InterfaceOverlay";
 import { ArchivePortal } from "../components/Photobooth/ArchivePortal";
 import { InteriorArchiveHub } from "../components/Photobooth/interior/hub/InteriorArchiveHub";
-import { useArchiveImagePreload } from "../components/Photobooth/interior/hub/archiveAsset";
+import { useInteriorAssetsPreload } from "../components/Photobooth/interior/hub/archiveAsset";
 import { ExteriorPhotoboothScene } from "./ExteriorPhotoboothScene";
 
 const EXTERIOR_BACKGROUND = new Color("#080706");
@@ -21,17 +21,13 @@ const INTERIOR_BACKGROUND = new Color("#160b09");
 const EXTERIOR_FOG = new Color("#100b09");
 const INTERIOR_FOG = new Color("#25120f");
 
-function smoothstep(value: number) {
-  const clamped = Math.min(1, Math.max(0, value));
-  return clamped * clamped * (3 - 2 * clamped);
-}
-
-function ContinuousAtmosphere({ interiorBlend }: { interiorBlend: number }) {
+function ContinuousAtmosphere({ transitionRef }: { transitionRef: TransitionRef }) {
   const { scene } = useThree();
   const background = useState(() => new Color())[0];
   const fogColor = useState(() => new Color())[0];
 
   useFrame(() => {
+    const interiorBlend = transitionRef.current.interiorBlend;
     background.lerpColors(EXTERIOR_BACKGROUND, INTERIOR_BACKGROUND, interiorBlend);
     fogColor.lerpColors(EXTERIOR_FOG, INTERIOR_FOG, interiorBlend);
     if (scene.background instanceof Color) scene.background.copy(background);
@@ -41,18 +37,49 @@ function ContinuousAtmosphere({ interiorBlend }: { interiorBlend: number }) {
   return null;
 }
 
+function CanvasReadySignal({ onReady }: { onReady: () => void }) {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    let active = true;
+    let secondFrame = 0;
+    let firstFrame = 0;
+    const warmScene = async () => {
+      try {
+        await gl.compileAsync(scene, camera);
+      } catch (error) {
+        // A rejected parallel compile must not strand the entrance control;
+        // the renderer can still compile synchronously on its normal frames.
+        console.warn("[photobooth] scene warm-up fell back to live compilation", error);
+      }
+      if (!active) return;
+      firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => active && onReady());
+      });
+    };
+    void warmScene();
+    return () => {
+      active = false;
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [camera, gl, onReady, scene]);
+  return null;
+}
+
 export function PhotoboothScene() {
   const { reducedMotion, coarsePointer } = useEntrancePreferences();
   const {
-    progress,
+    progressRef: curtainProgressRef,
     dragging,
     handlePointerDown,
     handleClick,
-    setCurtainProgress,
+    takeProgrammaticControl,
   } = useCurtainAnimation(reducedMotion);
   const {
     phase,
+    assetsReady,
     focusedObject,
+    markAssetsReady,
     beginEntering,
     arriveInside,
     openContent,
@@ -60,74 +87,61 @@ export function PhotoboothScene() {
     beginExiting,
     finishExiting,
   } = useExperience();
+  const shellRef = useRef<HTMLDivElement>(null);
   const [engaged, setEngaged] = useState(false);
-  const archiveReady = useArchiveImagePreload();
+  const [canvasReady, setCanvasReady] = useState(false);
+  const interiorAssetsReady = useInteriorAssetsPreload();
+  const markCanvasReady = useCallback(() => setCanvasReady(true), []);
   const {
     sceneMode,
-    entryProgress,
-    exitProgress,
+    transitionRef,
     enterBooth,
+    focusCamera,
+    returnCamera,
     exitBooth,
+    completeCameraTransition,
   } = useTransitionDirector({
     phase,
-    reducedMotion,
     beginEntering,
     arriveInside,
+    openContent,
+    finishRecenter,
     beginExiting,
     finishExiting,
-    curtainProgress: progress,
-    setCurtainProgress,
+    curtainProgressRef,
+    shellRef,
   });
 
+  useEffect(() => {
+    if (canvasReady && interiorAssetsReady) markAssetsReady();
+  }, [canvasReady, interiorAssetsReady, markAssetsReady]);
+
   const requestEntry = useCallback(() => {
-    if (!archiveReady) return;
+    if (!assetsReady) return;
     setEngaged(false);
+    takeProgrammaticControl();
     enterBooth();
-  }, [archiveReady, enterBooth]);
+  }, [assetsReady, enterBooth, takeProgrammaticControl]);
 
   useEffect(() => {
     if (phase !== "focusing") return;
-    const timer = setTimeout(
-      focusedObject ? openContent : finishRecenter,
-      reducedMotion ? 180 : focusedObject ? 720 : 680,
-    );
-    return () => clearTimeout(timer);
-  }, [finishRecenter, focusedObject, openContent, phase, reducedMotion]);
+    if (focusedObject) focusCamera(focusedObject);
+    else returnCamera();
+  }, [focusCamera, focusedObject, phase, returnCamera]);
 
   const handleCurtainClick = useCallback(() => {
     if (handleClick()) requestEntry();
   }, [handleClick, requestEntry]);
 
   const revealing = phase === "loading";
-  const interiorBlend = phase === "entering"
-    ? smoothstep(entryProgress)
-    : phase === "exiting"
-      ? 1 - smoothstep(exitProgress)
-      : phase === "inside" || phase === "focusing" || phase === "content"
-        ? 1
-        : 0;
-  const archiveHtmlOpacity = phase === "entering"
-    ? smoothstep((entryProgress - (reducedMotion ? 0.46 : 0.75)) / (reducedMotion ? 0.08 : 0.09))
-    : phase === "exiting"
-      ? 1 - smoothstep((exitProgress - (reducedMotion ? 0.08 : 0.04)) / (reducedMotion ? 0.1 : 0.12))
-      : phase === "inside" || phase === "focusing" || phase === "content"
-        ? 1
-        : 0;
-  const liveCurtainOpacity = phase === "entering"
-    ? 1 - smoothstep((entryProgress - 0.6) / 0.12)
-    : phase === "exiting"
-      ? smoothstep((exitProgress - 0.5) / 0.1)
-      : phase === "inside" || phase === "focusing" || phase === "content"
-        ? 0
-        : 1;
   const entranceStyle = {
     "--entry-grain-opacity": ENTRANCE_TUNING.grainOpacity,
     "--entry-reveal-duration": `${ENTRANCE_TUNING.revealDuration}s`,
-    "--entry-transition-duration": "2.2s",
+    "--entry-transition-duration": "2.6s",
   } as CSSProperties;
 
   return (
-    <div className={`canvas-shell canvas-shell--${phase}`} style={entranceStyle}>
+    <div ref={shellRef} className={`canvas-shell canvas-shell--${phase}`} style={entranceStyle}>
       <Canvas
         shadows
         dpr={[1, 1.65]}
@@ -138,30 +152,19 @@ export function PhotoboothScene() {
         <color attach="background" args={["#080706"]} />
         <fog attach="fog" args={["#100b09", 8, 18]} />
         <Suspense fallback={null}>
-          <ContinuousAtmosphere interiorBlend={interiorBlend} />
+          <ContinuousAtmosphere transitionRef={transitionRef} />
           <CameraRig
-            sceneMode={sceneMode}
-            entryProgress={entryProgress}
-            exitProgress={exitProgress}
-            dragging={dragging}
-            engaged={engaged}
+            transitionRef={transitionRef}
+            curtainProgressRef={curtainProgressRef}
+            shellRef={shellRef}
             reducedMotion={reducedMotion}
-            coarsePointer={coarsePointer}
+            onTransitionComplete={completeCameraTransition}
           />
-
-          <ArchivePortal
-            phase={phase}
-            entryProgress={entryProgress}
-            exitProgress={exitProgress}
-            reducedMotion={reducedMotion}
-          />
-
+          <ArchivePortal phase={phase} transitionRef={transitionRef} reducedMotion={reducedMotion} />
           <ExteriorPhotoboothScene
-            visible={sceneMode === "exterior" || phase === "entering" || phase === "exiting"}
-            lightingStrength={1 - interiorBlend}
+            transitionRef={transitionRef}
             phase={phase}
-            progress={progress}
-            curtainOpacity={liveCurtainOpacity}
+            curtainProgressRef={curtainProgressRef}
             dragging={dragging}
             engaged={engaged}
             revealing={revealing}
@@ -173,22 +176,21 @@ export function PhotoboothScene() {
             onEngagementChange={setEngaged}
           />
           <Preload all />
+          <CanvasReadySignal onReady={markCanvasReady} />
         </Suspense>
         <EffectsPipeline />
       </Canvas>
 
       <InteriorArchiveHub
         phase={phase}
-        opacity={archiveHtmlOpacity}
-        imageReady={archiveReady}
+        imageReady={assetsReady}
         reducedMotion={reducedMotion}
       />
 
       <InterfaceOverlay
         phase={phase}
         sceneMode={sceneMode}
-        exitProgress={exitProgress}
-        archiveReady={archiveReady}
+        archiveReady={assetsReady}
         onEnter={requestEntry}
         onExit={exitBooth}
         onEngagementChange={setEngaged}

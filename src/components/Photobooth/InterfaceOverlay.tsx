@@ -8,7 +8,6 @@ import { ContentOverlay } from "../ContentOverlay/ContentOverlay";
 interface InterfaceOverlayProps {
   phase: Phase;
   sceneMode: SceneMode;
-  exitProgress: number;
   archiveReady: boolean;
   onEnter: () => void;
   onExit: () => void;
@@ -18,7 +17,6 @@ interface InterfaceOverlayProps {
 export function InterfaceOverlay({
   phase,
   sceneMode,
-  exitProgress,
   archiveReady,
   onEnter,
   onExit,
@@ -33,28 +31,6 @@ export function InterfaceOverlay({
           entering={phase === "entering"}
           visible={visible}
           archiveReady={archiveReady}
-          onEnter={onEnter}
-          onEngagementChange={onEngagementChange}
-        />
-      </>
-    );
-  }
-
-  if (phase === "exiting" && sceneMode === "exterior") {
-    const revealStart = 2.2 / 3.1;
-    const revealEnd = 2.85 / 3.1;
-    const rawProgress = Math.min(1, Math.max(0, (exitProgress - revealStart) / (revealEnd - revealStart)));
-    const revealProgress = rawProgress * rawProgress * (3 - 2 * rawProgress);
-    if (revealProgress <= 0) return null;
-    return (
-      <>
-        <AtmosphericOverlay entering={false} visible />
-        <EntranceInterface
-          entering={false}
-          visible
-          interactive={false}
-          archiveReady={archiveReady}
-          revealProgress={revealProgress}
           onEnter={onEnter}
           onEngagementChange={onEngagementChange}
         />
