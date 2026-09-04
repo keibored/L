@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useExperience } from "../../state/ExperienceContext";
 import { STATION_BY_ID } from "../Photobooth/interior/hub/stationData";
+import { MemoriesGallery } from "../Memories/MemoriesGallery";
 import "./ContentOverlay.css";
 
 export function ContentOverlay() {
@@ -13,6 +14,10 @@ export function ContentOverlay() {
   }, [open]);
 
   if (!open || !focusedObject) return null;
+
+  if (focusedObject === "memories") {
+    return <MemoriesGallery onBack={closeContent} />;
+  }
 
   const station = STATION_BY_ID[focusedObject];
 

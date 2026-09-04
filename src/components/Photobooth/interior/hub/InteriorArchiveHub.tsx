@@ -110,6 +110,7 @@ export function InteriorArchiveHub({ phase, imageReady, reducedMotion }: Interio
     setHoveredObject,
   } = useExperience();
   const rootRef = useRef<HTMLDivElement>(null);
+  const returnFocusObject = useRef<ObjectId | null>(null);
   const view = useRef({ x: 0, y: 0, zoom: 1 });
   const appliedRecenterToken = useRef(recenterToken);
   const drag = useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
@@ -118,6 +119,21 @@ export function InteriorArchiveHub({ phase, imageReady, reducedMotion }: Interio
     () => HOTSPOTS.find((hotspot) => hotspot.id === focusedObject),
     [focusedObject],
   );
+
+  useEffect(() => {
+    if (focusedObject) returnFocusObject.current = focusedObject;
+  }, [focusedObject]);
+
+  useEffect(() => {
+    if (phase !== "inside" || !returnFocusObject.current) return;
+    const objectId = returnFocusObject.current;
+    returnFocusObject.current = null;
+    requestAnimationFrame(() => {
+      rootRef.current
+        ?.querySelector<HTMLButtonElement>(`[data-archive-hotspot="${objectId}"]`)
+        ?.focus();
+    });
+  }, [phase]);
 
   const applyView = useCallback((x: number, y: number, zoom: number) => {
     const root = rootRef.current;
@@ -249,6 +265,7 @@ export function InteriorArchiveHub({ phase, imageReady, reducedMotion }: Interio
               <button
                 key={hotspot.id}
                 type="button"
+                data-archive-hotspot={hotspot.id}
                 className={`archive-hotspot archive-hotspot--${hotspot.id}${hovered ? " archive-hotspot--active" : ""}${visited ? " archive-hotspot--visited" : ""}`}
                 style={{ left: `${hotspot.left}%`, top: `${hotspot.top}%`, width: `${hotspot.width}%`, height: `${hotspot.height}%` }}
                 aria-label={`Open ${hotspot.label}`}

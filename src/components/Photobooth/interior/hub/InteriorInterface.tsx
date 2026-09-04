@@ -26,7 +26,7 @@ export function InteriorInterface({ visible, onExit }: InteriorInterfaceProps) {
   useEffect(() => {
     if (!visible) return;
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.defaultPrevented || event.key !== "Escape") return;
       if (controlsOpen) {
         setControlsOpen(false);
         return;
@@ -48,7 +48,11 @@ export function InteriorInterface({ visible, onExit }: InteriorInterfaceProps) {
   if (!visible) return null;
 
   return (
-    <div className={`interior-interface interior-interface--${phase}`}>
+    <div
+      className={`interior-interface interior-interface--${phase}`}
+      aria-hidden={phase === "content" ? true : undefined}
+      inert={phase === "content"}
+    >
       <div className="interaction-counter" aria-live="polite">
         <span>INTERACTIONS</span>
         <strong>{visitedObjects.length} / 4</strong>
