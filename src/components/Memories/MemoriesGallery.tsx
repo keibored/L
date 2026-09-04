@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -307,8 +306,13 @@ export function MemoriesGallery({ onBack }: MemoriesGalleryProps) {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHasCarouselFocus(false);
   };
 
+  const handleCarouselFocus = (event: ReactFocusEvent<HTMLDivElement>) => {
+    setHasCarouselFocus(event.target.matches(":focus-visible"));
+  };
+
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "touch") return;
+    event.currentTarget.setPointerCapture(event.pointerId);
     swipeStartX.current = event.clientX;
     didSwipe.current = false;
     setIsDragging(true);
@@ -316,6 +320,9 @@ export function MemoriesGallery({ onBack }: MemoriesGalleryProps) {
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "touch" || swipeStartX.current === null) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     const distance = event.clientX - swipeStartX.current;
     swipeStartX.current = null;
     setIsDragging(false);
@@ -382,7 +389,7 @@ export function MemoriesGallery({ onBack }: MemoriesGalleryProps) {
           className="memories-carousel"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
-          onFocusCapture={() => setHasCarouselFocus(true)}
+          onFocusCapture={handleCarouselFocus}
           onBlurCapture={handleCarouselBlur}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
@@ -479,9 +486,15 @@ export function MemoriesGallery({ onBack }: MemoriesGalleryProps) {
           </footer>
         </div>
 
-        <a className="memories-scroll-cue" href="#memories-archive">
+        <button
+          type="button"
+          className="memories-scroll-cue"
+          onClick={() => experienceRef.current?.querySelector("#memories-archive")?.scrollIntoView({
+            behavior: reducedMotion ? "auto" : "smooth",
+          })}
+        >
           <span>Scroll to explore</span><i aria-hidden="true" />
-        </a>
+        </button>
       </section>
 
       <section id="memories-archive" className="memory-archive" aria-labelledby="memory-archive-title">
