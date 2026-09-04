@@ -10,7 +10,7 @@ export interface StoryChapter {
 /**
  * Replace the instructional descriptions below with the real story. Dates,
  * names, and events are intentionally not guessed. To add an image, copy it to
- * `public/story` and use a public path such as `/story/chapter-one.jpg`.
+ * `public/story` and use a public-relative path such as `story/chapter-one.jpg`.
  */
 export const STORY_CHAPTERS: readonly StoryChapter[] = [
   {

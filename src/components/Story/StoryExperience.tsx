@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { STORY_CHAPTERS } from "../../data/story";
+import { publicAssetUrl } from "../../utils/publicAssetUrl";
 import { ArchiveSection } from "../ContentOverlay/ArchiveSection";
 import "./StoryExperience.css";
 
@@ -87,7 +88,7 @@ export function StoryExperience({ onBack }: StoryExperienceProps) {
           </div>
           {chapter.image ? (
             <figure className="story-chapter__image">
-              <img src={chapter.image} alt={chapter.caption ?? chapter.title} loading="lazy" decoding="async" />
+              <img src={publicAssetUrl(chapter.image)} alt={chapter.caption ?? chapter.title} loading="lazy" decoding="async" />
               {chapter.caption && <figcaption>{chapter.caption}</figcaption>}
             </figure>
           ) : (
