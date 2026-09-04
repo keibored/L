@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isDirectInteriorPreview } from "../utils/devScenePreview";
 
 export type Phase = "loading" | "outside" | "entering" | "inside" | "focusing" | "content" | "exiting";
@@ -42,6 +42,7 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
     }
   });
   const [recenterToken, setRecenterToken] = useState(0);
+  const stationTransitionLocked = useRef(false);
 
   useEffect(() => {
     try {
@@ -57,11 +58,13 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
   const arriveInside = useCallback(() => setPhase((p) => (p === "entering" ? "inside" : p)), []);
 
   const focusObject = useCallback((id: ObjectId) => {
+    if (phase !== "inside" || stationTransitionLocked.current) return;
+    stationTransitionLocked.current = true;
     setFocusedObject(id);
     setHoveredObject(null);
     setVisitedObjects((visited) => (visited.includes(id) ? visited : [...visited, id]));
     setPhase((p) => (p === "inside" ? "focusing" : p));
-  }, []);
+  }, [phase]);
 
   const openContent = useCallback(() => setPhase((p) => (p === "focusing" ? "content" : p)), []);
 
@@ -84,6 +87,10 @@ export function ExperienceProvider({ children }: { children: ReactNode }) {
     setHoveredObject(null);
     setPhase((p) => (p === "exiting" ? "outside" : p));
   }, []);
+
+  useEffect(() => {
+    if (phase === "inside" || phase === "outside") stationTransitionLocked.current = false;
+  }, [phase]);
 
   const value = useMemo(
     () => ({
