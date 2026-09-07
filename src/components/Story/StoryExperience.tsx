@@ -79,24 +79,19 @@ export function StoryExperience({ onBack }: StoryExperienceProps) {
           onPointerCancel={() => { swipeStartX.current = null; }}
         >
           <div className="story-chapter__binding" aria-hidden="true"><i /><i /><i /></div>
-          <div className="story-chapter__content">
+          <div className="story-chapter__content" tabIndex={0} role="region" aria-labelledby={`story-chapter-${chapter.id}`}>
             <p className="story-chapter__number">Chapter {String(activeIndex + 1).padStart(2, "0")}</p>
-            <p className="story-chapter__period">{chapter.period}</p>
-            <h3>{chapter.title}</h3>
+            {chapter.period && <p className="story-chapter__period">{chapter.period}</p>}
+            <h3 id={`story-chapter-${chapter.id}`}>{chapter.title}</h3>
             <span className="story-chapter__rule" aria-hidden="true" />
-            <p className="story-chapter__description">{chapter.description}</p>
-          </div>
-          {chapter.image ? (
-            <figure className="story-chapter__image">
-              <img src={publicAssetUrl(chapter.image)} alt={chapter.caption ?? chapter.title} loading="lazy" decoding="async" />
-              {chapter.caption && <figcaption>{chapter.caption}</figcaption>}
-            </figure>
-          ) : (
-            <div className="story-chapter__placeholder" aria-hidden="true">
-              <span>Image may be placed here</span>
-              <i />
+            <div className="story-chapter__description">
+              {chapter.description.split(/\r?\n\r?\n/).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
             </div>
-          )}
+          </div>
+          <figure className="story-chapter__image">
+            <img src={publicAssetUrl(chapter.image)} alt={chapter.alt} loading="lazy" decoding="async" />
+            {chapter.caption && <figcaption>{chapter.caption}</figcaption>}
+          </figure>
         </article>
 
         <nav className="story-navigation" aria-label="Story chapter navigation">

@@ -7,124 +7,39 @@
     linear-gradient(180deg, rgba(17, 7, 9, 0.08), rgba(8, 3, 4, 0.3));
 }
 
-.letters-empty,
 .letters-collection {
   display: grid;
-  align-content: center;
+  align-content: start;
   justify-items: center;
   height: 100%;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
   text-align: center;
 }
 
-.letters-empty__stack {
-  position: relative;
-  width: clamp(210px, 35vw, 330px);
-  height: clamp(150px, 24vw, 220px);
-  margin-bottom: 22px;
-}
-
-.letters-empty__stack > span {
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  width: 72%;
-  height: 63%;
-  border: 1px solid rgba(105, 67, 53, 0.2);
-  background: #e2d2b9;
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.3);
-}
-
-.letters-empty__stack > span:first-child { transform: translateX(-53%) rotate(-5deg); }
-.letters-empty__stack > span:nth-child(2) { transform: translateX(-47%) rotate(4deg); }
-
-.letters-envelope-art {
-  position: absolute;
-  left: 50%;
-  bottom: 8px;
-  width: 76%;
-  aspect-ratio: 1.55;
-  border: 1px solid rgba(101, 59, 48, 0.3);
-  background: linear-gradient(145deg, #eadbc2, #cbb394);
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.42);
-  transform: translateX(-50%) rotate(-1deg);
-}
-
-.letters-envelope-art::before,
-.letters-envelope-art::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  clip-path: polygon(0 0, 50% 57%, 100% 0);
-}
-
-.letters-envelope-art::before { background: #dbc6a7; }
-.letters-envelope-art::after {
-  clip-path: polygon(0 100%, 0 34%, 50% 72%, 100% 34%, 100% 100%);
-  background: linear-gradient(145deg, #e5d2b4, #c7ae8e);
-}
-
-.letters-envelope-art i {
-  position: absolute;
-  left: 50%;
-  top: 52%;
-  z-index: 2;
-  width: 31px;
-  height: 31px;
-  border-radius: 50%;
-  background: #7c3038;
-  box-shadow: 0 5px 10px rgba(58, 15, 21, 0.34);
-  transform: translate(-50%, -50%);
-}
-
-.letters-empty__kicker,
-.letters-empty__note,
 .letters-collection__intro {
-  margin: 0;
+  margin: 2px 0 28px;
   color: rgba(227, 196, 167, 0.56);
-}
-
-.letters-empty__kicker,
-.letters-collection__intro {
   font-size: 0.53rem;
   font-weight: 600;
   letter-spacing: 0.25em;
   text-transform: uppercase;
 }
 
-.letters-empty h3 {
-  margin: 13px 0 10px;
-  color: #f1dec7;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.25rem, 3vw, 2rem);
-  font-style: italic;
-  font-weight: 400;
-}
-
-.letters-empty__note {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 0.82rem;
-}
-
-.letters-collection {
-  align-content: start;
-  overflow-y: auto;
-}
-
-.letters-collection__intro { margin: 2px 0 28px; }
-
 .letters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: clamp(20px, 3vw, 34px);
   width: min(100%, 820px);
-  padding: 12px 4px 35px;
+  padding: 12px 8px 35px;
 }
 
 .letter-envelope {
   position: relative;
-  min-height: 188px;
-  padding: 56px 25px 24px;
+  min-width: 0;
+  min-height: 220px;
+  padding: 110px 25px 24px;
   overflow: hidden;
   border: 1px solid rgba(111, 69, 53, 0.32);
   background: linear-gradient(145deg, #eadbc3, #cbb292);
@@ -136,19 +51,15 @@
 }
 
 .letter-envelope:hover { box-shadow: 0 25px 52px rgba(0, 0, 0, 0.46); translate: 0 -3px; }
-.letter-envelope:disabled { cursor: default; }
+.letters-experience .letter-envelope:focus-visible { outline: 2px solid #f0c194; outline-offset: 4px; }
 
 .letter-envelope__flap {
   position: absolute;
   inset: 0 0 auto;
-  height: 58%;
+  height: 110px;
   background: #d9c3a4;
   clip-path: polygon(0 0, 50% 68%, 100% 0);
-  transform-origin: top center;
-  transition: transform 480ms cubic-bezier(0.2, 0.72, 0.2, 1);
 }
-
-.letter-envelope--opening .letter-envelope__flap { transform: rotateX(178deg); }
 
 .letter-envelope__seal {
   position: absolute;
@@ -165,17 +76,13 @@
   font-family: Georgia, "Times New Roman", serif;
   box-shadow: 0 4px 9px rgba(64, 16, 22, 0.32);
   transform: translateX(-50%);
-  transition: opacity 160ms ease;
 }
 
-.letter-envelope--opening .letter-envelope__seal { opacity: 0; }
-
 .letter-envelope__copy { position: relative; z-index: 1; display: grid; }
-.letter-envelope__copy i { font-size: 0.5rem; font-style: normal; letter-spacing: 0.18em; text-transform: uppercase; }
-.letter-envelope__copy strong { margin-top: 9px; font-family: Georgia, "Times New Roman", serif; font-size: 1.15rem; font-weight: 400; }
-.letter-envelope__copy small { margin-top: 8px; color: rgba(72, 45, 39, 0.7); font-family: Georgia, "Times New Roman", serif; line-height: 1.45; }
+.letter-envelope__copy strong { font-family: Georgia, "Times New Roman", serif; font-size: 1.15rem; font-weight: 400; line-height: 1.4; overflow-wrap: break-word; }
 
 .letter-reader {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   place-items: center;
@@ -193,44 +100,48 @@
   background: #b89b78;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   transform: translateX(-50%) rotate(-2deg);
+  pointer-events: none;
 }
 
 .letter-sheet {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  width: min(84vw, 610px);
-  max-height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 18px;
+  width: min(100%, 610px);
+  height: 100%;
+  min-width: 0;
   min-height: 0;
-  padding: clamp(30px, 5vw, 54px);
+  padding: clamp(22px, 3vw, 38px);
+  overflow: hidden;
   border: 1px solid rgba(88, 56, 45, 0.2);
   background:
     repeating-linear-gradient(0deg, transparent 0 28px, rgba(102, 73, 58, 0.07) 29px),
     linear-gradient(145deg, #f1e6d1, #deccb0);
   color: #462c27;
   box-shadow: 0 30px 75px rgba(0, 0, 0, 0.48);
-  animation: letter-sheet-reveal 360ms ease both;
 }
 
-.letter-sheet__close {
-  position: absolute;
-  top: 13px;
-  right: 14px;
-  width: 32px;
-  height: 32px;
-  padding: 0;
+.letter-sheet__back {
+  justify-self: start;
+  min-height: 36px;
+  padding: 8px 10px;
   border: 1px solid rgba(81, 47, 39, 0.24);
-  border-radius: 50%;
   background: rgba(247, 237, 218, 0.36);
   color: #633d34;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
   cursor: pointer;
 }
 
-.letter-sheet__date { margin: 0; font-size: 0.55rem; letter-spacing: 0.2em; text-transform: uppercase; }
-.letter-sheet h3 { margin: 10px 38px 22px 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.35rem, 3vw, 2rem); font-weight: 400; }
-.letter-sheet__body { min-height: 0; overflow-y: auto; padding-right: 12px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(0.9rem, 1.5vw, 1.02rem); line-height: 1.82; white-space: pre-wrap; }
-.letter-sheet__signature { margin: 20px 0 0; font-family: Georgia, "Times New Roman", serif; font-style: italic; text-align: right; }
+.letter-sheet__content { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding: 4px 10px 4px 4px; overflow-wrap: break-word; }
+.letter-sheet h3 { margin: 0 0 22px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.35rem, 3vw, 2rem); font-weight: 400; line-height: 1.25; }
+.letter-sheet__body { font-family: Georgia, "Times New Roman", serif; font-size: 1.02rem; line-height: 1.82; }
+.letter-sheet__body p { margin: 0; }
+.letter-sheet__body p + p { margin-top: 1em; }
+.letters-experience .letter-sheet__back:focus-visible { outline: 2px solid #80323a; outline-offset: 3px; }
+.letter-sheet__content:focus-visible { outline: 2px solid #80323a; outline-offset: -2px; }
 
 .letter-reader__navigation {
   position: relative;
@@ -238,27 +149,23 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  width: min(84vw, 610px);
+  width: min(100%, 610px);
 }
 
 .letter-reader__navigation button { width: max-content; padding: 8px 3px; border: 0; background: transparent; color: #efd8bd; cursor: pointer; font-size: 0.58rem; letter-spacing: 0.18em; text-transform: uppercase; }
 .letter-reader__navigation button:last-child { justify-self: end; }
 .letter-reader__navigation p { margin: 0; color: rgba(232, 194, 161, 0.56); font-size: 0.55rem; letter-spacing: 0.16em; }
 
-@keyframes letter-sheet-reveal { from { opacity: 0; } to { opacity: 1; } }
-
 @media (max-width: 680px) {
   .letters-experience { padding: 16px; }
-  .letters-empty__stack { width: 210px; height: 150px; margin-bottom: 12px; }
   .letters-grid { grid-template-columns: 1fr; }
-  .letter-sheet { width: 100%; padding: 37px 24px 28px; }
+  .letter-sheet { padding: 18px; gap: 14px; }
+  .letter-sheet__body { font-size: 1rem; line-height: 1.7; }
   .letter-reader__navigation { width: 100%; }
   .letter-reader__navigation button span { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .letter-envelope,
-  .letter-envelope__flap,
-  .letter-envelope__seal,
-  .letter-sheet { animation: none !important; transition-duration: 1ms !important; }
+  .letter-envelope { transition: none; }
+  .letter-envelope:hover { translate: none; }
 }

@@ -259,7 +259,6 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "touch") return;
-    event.currentTarget.setPointerCapture(event.pointerId);
     swipeStartX.current = event.clientX;
     didSwipe.current = false;
     setIsDragging(true);
@@ -267,9 +266,6 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "touch" || swipeStartX.current === null) return;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
     const distance = event.clientX - swipeStartX.current;
     swipeStartX.current = null;
     setIsDragging(false);

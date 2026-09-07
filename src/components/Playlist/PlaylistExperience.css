@@ -2,9 +2,12 @@
   display: grid;
   grid-template-columns: minmax(230px, 0.72fr) minmax(360px, 1.28fr);
   align-items: center;
+  align-content: safe center;
   gap: clamp(25px, 5vw, 66px);
   height: 100%;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
   padding: clamp(25px, 5vw, 58px);
   background:
     radial-gradient(circle at 23% 52%, rgba(202, 118, 100, 0.11), transparent 31%),
@@ -171,7 +174,7 @@
 .playlist-player__fallback p { margin: 0 0 8px; color: #efdbc5; font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; }
 .playlist-player__fallback span { color: rgba(231, 202, 176, 0.55); font-size: 0.76rem; }
 
-.playlist-player__footer { margin-top: 16px; }
+.playlist-player__footer { margin-top: 16px; flex-wrap: wrap; }
 .playlist-player__footer p { margin: 0; color: rgba(225, 191, 161, 0.47); font-family: Georgia, "Times New Roman", serif; font-size: 0.72rem; font-style: italic; }
 .playlist-player__footer a { flex: 0 0 auto; color: #edc7a5; font-size: 0.55rem; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; }
 .playlist-player__footer a span { margin-left: 4px; }
@@ -180,7 +183,7 @@
 @keyframes playlist-loader-turn { to { transform: rotate(360deg); } }
 
 @media (max-width: 760px) {
-  .playlist-experience { grid-template-columns: 1fr; align-content: center; gap: 17px; padding: 17px; overflow-y: auto; }
+  .playlist-experience { grid-template-columns: minmax(0, 1fr); gap: 17px; padding: 17px; }
   .playlist-console { justify-self: center; width: min(46vw, 190px); }
   .playlist-console::before { display: none; }
   .playlist-player { justify-self: center; }
@@ -189,7 +192,7 @@
 
 @media (max-height: 720px) {
   .playlist-console { display: none; }
-  .playlist-experience { grid-template-columns: 1fr; padding-block: 15px; overflow-y: auto; }
+  .playlist-experience { grid-template-columns: minmax(0, 1fr); padding-block: 15px; }
   .playlist-player { justify-self: center; }
 }
 

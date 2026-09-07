@@ -70,7 +70,7 @@
   position: relative;
   z-index: 10;
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) auto minmax(150px, 1fr);
+  grid-template-columns: minmax(150px, 1fr) minmax(0, 530px) minmax(150px, 1fr);
   align-items: start;
   gap: 24px;
 }
@@ -107,7 +107,7 @@
 .memories-back span { color: #d4a083; font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; line-height: 0; }
 .memories-back:hover { color: #fff2df; translate: -2px 0; }
 
-.memories-heading { min-width: min(52vw, 530px); text-align: center; text-shadow: 0 3px 28px rgba(0, 0, 0, 0.7); }
+.memories-heading { grid-column: 2; min-width: 0; text-align: center; text-shadow: 0 3px 28px rgba(0, 0, 0, 0.7); }
 
 .memories-heading p,
 .memories-heading span,
@@ -123,7 +123,7 @@
 .memories-heading h2 { margin: 5px 0 3px; color: #f5e2ce; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.65rem, 3.2vw, 2.8rem); font-weight: 400; letter-spacing: 0.16em; line-height: 1; text-transform: uppercase; }
 .memories-heading span { color: rgba(239, 210, 187, 0.7); font-family: Georgia, "Times New Roman", serif; font-size: clamp(0.65rem, 0.85vw, 0.78rem); font-style: italic; letter-spacing: 0.1em; text-transform: none; }
 
-.memories-count { justify-self: end; display: flex; align-items: center; gap: 9px; padding-top: 8px; color: rgba(238, 213, 188, 0.48); font-size: 0.58rem; letter-spacing: 0.16em; }
+.memories-count { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 9px; padding-top: 8px; color: rgba(238, 213, 188, 0.48); font-size: 0.58rem; letter-spacing: 0.16em; }
 .memories-count span { color: #e4b49a; }
 .memories-count i { width: 24px; height: 1px; background: rgba(232, 194, 164, 0.32); }
 

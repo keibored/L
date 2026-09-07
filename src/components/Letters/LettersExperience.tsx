@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { gsap } from "gsap";
 import { LETTERS } from "../../data/letters";
 import { ArchiveSection } from "../ContentOverlay/ArchiveSection";
 import "./LettersExperience.css";
@@ -13,43 +14,38 @@ function wrappedLetterIndex(index: number) {
 
 export function LettersExperience({ onBack }: LettersExperienceProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [openingIndex, setOpeningIndex] = useState<number | null>(null);
-  const openingTimer = useRef<number | null>(null);
-  const letterCloseRef = useRef<HTMLButtonElement>(null);
+  const letterBackRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const envelopeRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const returnIndexRef = useRef<number | null>(null);
 
-  useEffect(() => () => {
-    if (openingTimer.current !== null) window.clearTimeout(openingTimer.current);
-  }, []);
+  useLayoutEffect(() => {
+    if (selectedIndex === null) {
+      if (returnIndexRef.current !== null) {
+        envelopeRefs.current[returnIndexRef.current]?.focus();
+        returnIndexRef.current = null;
+      }
+      return;
+    }
 
-  useEffect(() => {
-    if (selectedIndex !== null) letterCloseRef.current?.focus();
+    letterBackRef.current?.focus({ preventScroll: true });
+    const media = gsap.matchMedia();
+    media.add("(prefers-reduced-motion: no-preference)", () => {
+      gsap.fromTo(sheetRef.current, { y: 8, opacity: 0.7 }, {
+        y: 0,
+        opacity: 1,
+        duration: 0.24,
+        ease: "power2.out",
+        clearProps: "transform,opacity",
+      });
+    });
+    return () => media.revert();
   }, [selectedIndex]);
 
-  const openLetter = useCallback((index: number) => {
-    if (openingIndex !== null || selectedIndex !== null) return;
-    setOpeningIndex(index);
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    openingTimer.current = window.setTimeout(() => {
-      setOpeningIndex(null);
-      setSelectedIndex(index);
-      openingTimer.current = null;
-    }, reducedMotion ? 0 : 520);
-  }, [openingIndex, selectedIndex]);
-
   const closeLetter = useCallback(() => {
-    if (openingTimer.current !== null) {
-      window.clearTimeout(openingTimer.current);
-      openingTimer.current = null;
-    }
-    const returnIndex = selectedIndex ?? openingIndex;
-    setOpeningIndex(null);
+    returnIndexRef.current = selectedIndex;
     setSelectedIndex(null);
-    if (returnIndex !== null) {
-      requestAnimationFrame(() => {
-        document.querySelector<HTMLButtonElement>(`[data-letter-index="${returnIndex}"]`)?.focus();
-      });
-    }
-  }, [openingIndex, selectedIndex]);
+  }, [selectedIndex]);
 
   const showPrevious = useCallback(() => {
     setSelectedIndex((current) => current === null ? current : wrappedLetterIndex(current - 1));
@@ -60,9 +56,9 @@ export function LettersExperience({ onBack }: LettersExperienceProps) {
   }, []);
 
   const handleEscape = useCallback(() => {
-    if (selectedIndex !== null || openingIndex !== null) closeLetter();
+    if (selectedIndex !== null) closeLetter();
     else onBack();
-  }, [closeLetter, onBack, openingIndex, selectedIndex]);
+  }, [closeLetter, onBack, selectedIndex]);
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (selectedIndex === null) return;
@@ -88,32 +84,23 @@ export function LettersExperience({ onBack }: LettersExperienceProps) {
       onWindowKeyDown={handleKeyDown}
     >
       <div className="letters-experience">
-        {LETTERS.length === 0 ? (
-          <div className="letters-empty">
-            <div className="letters-empty__stack" aria-hidden="true">
-              <span />
-              <span />
-              <div className="letters-envelope-art"><i /></div>
-            </div>
-            <p className="letters-empty__kicker">The correspondence box is waiting</p>
-            <h3>Some letters take time to find their words.</h3>
-            <p className="letters-empty__note">When they are ready, they will be kept here.</p>
-          </div>
-        ) : selectedLetter ? (
-          <article className="letter-reader" aria-live="polite">
+        {selectedLetter ? (
+          <article className="letter-reader" aria-labelledby="letter-title">
             <div className="letter-reader__envelope" aria-hidden="true"><span /></div>
-            <div className="letter-sheet">
-              <button ref={letterCloseRef} type="button" className="letter-sheet__close" onClick={closeLetter} aria-label="Close this letter">
-                <span aria-hidden="true">×</span>
+            <div ref={sheetRef} className="letter-sheet">
+              <button ref={letterBackRef} type="button" className="letter-sheet__back" onClick={closeLetter}>
+                <span aria-hidden="true">←</span> Back to envelopes
               </button>
-              <p className="letter-sheet__date">{selectedLetter.date}</p>
-              <h3>{selectedLetter.title}</h3>
-              <div className="letter-sheet__body" tabIndex={0}>{selectedLetter.body}</div>
-              {selectedLetter.signature && <p className="letter-sheet__signature">{selectedLetter.signature}</p>}
+              <div key={selectedLetter.id} className="letter-sheet__content" tabIndex={0} role="region" aria-labelledby="letter-title">
+                <h3 id="letter-title">{selectedLetter.title}</h3>
+                <div className="letter-sheet__body">
+                  {selectedLetter.body.split(/\r?\n\r?\n/).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                </div>
+              </div>
             </div>
             <nav className="letter-reader__navigation" aria-label="Letter navigation">
               <button type="button" onClick={showPrevious} aria-label="Read previous letter">← <span>Previous</span></button>
-              <p>{(selectedIndex ?? 0) + 1} / {LETTERS.length}</p>
+              <p aria-live="polite">{(selectedIndex ?? 0) + 1} / {LETTERS.length}</p>
               <button type="button" onClick={showNext} aria-label="Read next letter"><span>Next</span> →</button>
             </nav>
           </article>
@@ -124,19 +111,17 @@ export function LettersExperience({ onBack }: LettersExperienceProps) {
               {LETTERS.map((letter, index) => (
                 <button
                   key={letter.id}
+                  ref={(element) => { envelopeRefs.current[index] = element; }}
                   type="button"
                   data-letter-index={index}
-                  className={`letter-envelope${openingIndex === index ? " letter-envelope--opening" : ""}`}
-                  onClick={() => openLetter(index)}
-                  disabled={openingIndex !== null}
-                  aria-label={`Open ${letter.title}, dated ${letter.date}`}
+                  className="letter-envelope"
+                  onClick={() => setSelectedIndex(index)}
+                  aria-label={`Open ${letter.title}`}
                 >
                   <span className="letter-envelope__flap" aria-hidden="true" />
                   <span className="letter-envelope__seal" aria-hidden="true">S</span>
                   <span className="letter-envelope__copy">
-                    <i>{letter.date}</i>
                     <strong>{letter.title}</strong>
-                    <small>{letter.preview}</small>
                   </span>
                 </button>
               ))}
