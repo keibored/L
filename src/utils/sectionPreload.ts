@@ -7,7 +7,7 @@ import { publicAssetUrl } from "./publicAssetUrl";
 export function preloadSectionImages(section: string) {
   if (section === "memories") {
     const featured = MEMORIES.filter((photo) => photo.featured);
-    [featured.at(-1), featured[0], featured[1]].forEach((photo) => {
+    [featured.at(-2), featured.at(-1), featured[0], featured[1], featured[2]].forEach((photo) => {
       if (photo) void previewImages.preload(publicAssetUrl(photo.thumbnailSrc));
     });
   } else if (section === "story") {

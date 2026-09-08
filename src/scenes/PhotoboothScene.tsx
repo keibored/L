@@ -143,9 +143,9 @@ export function PhotoboothScene() {
   return (
     <div ref={shellRef} className={`canvas-shell canvas-shell--${phase}`} style={entranceStyle}>
       <Canvas
-        // Keep the last booth frame behind the paper; redraw only for changes
-        // such as resizing, then resume continuous motion before returning.
-        frameloop={phase === "content" ? "demand" : "always"}
+        // The HTML archive covers the canvas at rest. Keep its last frame and
+        // resume before camera travel; initial shader warm-up still runs live.
+        frameloop={canvasReady && (phase === "inside" || phase === "content") ? "demand" : "always"}
         shadows
         dpr={[1, 1.65]}
         performance={{ min: 0.55 }}

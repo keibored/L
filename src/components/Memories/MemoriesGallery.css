@@ -11,7 +11,7 @@
   background:
     radial-gradient(ellipse at 50% 18%, rgba(144, 76, 76, 0.18), transparent 38%),
     linear-gradient(180deg, rgba(40, 13, 18, 0.97), rgba(22, 10, 10, 0.99) 52%, #160a0c 100%);
-  animation: memories-reveal 500ms ease both;
+  animation: memories-reveal 240ms ease both;
 }
 
 .memories-experience--viewing { overflow: hidden; }
@@ -179,8 +179,8 @@
   backface-visibility: hidden;
   will-change: transform, opacity;
   transition:
-    transform 700ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1);
+    transform var(--carousel-transition-duration, 450ms) cubic-bezier(0.22, 1, 0.36, 1),
+    opacity var(--carousel-transition-duration, 450ms) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .memory-photo--portrait { width: clamp(205px, 25vw, 350px); }

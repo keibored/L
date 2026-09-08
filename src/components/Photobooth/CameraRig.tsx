@@ -201,12 +201,12 @@ export function CameraRig({
             ? focusAnchors.playlistFocus
             : focusAnchors.storyFocus;
       const distance = camera.position.distanceTo(tempPosition.set(...destination.position));
-      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(distance / 2.25, 1.25, 2.1);
+      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.55 + distance * 0.06, 0.7, 0.95);
       posePath = curvedPosePath(livePose, destination);
     } else if (command.kind === "return") {
       destination = anchors.interiorHome;
       const distance = camera.position.distanceTo(tempPosition.set(...destination.position));
-      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.68 + distance * 0.16, 0.72, 1.2);
+      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.4 + distance * 0.06, 0.5, 0.75);
       posePath = curvedPosePath(livePose, destination);
     } else {
       destination = anchors.exteriorHome;
@@ -307,10 +307,14 @@ export function CameraRig({
       hasInit.current = true;
     }
 
+    const startingMotion = transitionRef.current.command !== null
+      && transitionRef.current.command.id !== handledCommand.current;
     beginMotion();
     const motion = activeMotion.current;
     if (motion) {
-      motion.elapsed += delta;
+      // A demand-rendered canvas may have been idle for seconds. Its first
+      // frame starts at the live pose instead of consuming that idle time.
+      motion.elapsed += startingMotion ? 0 : delta;
       if (motion.kind === "enter") {
         curtainProgressRef.current = smoothstep(motion.elapsed / (reducedMotion ? 0.16 : 0.62));
         const travel = clamp01(motion.elapsed / motion.boothDuration);

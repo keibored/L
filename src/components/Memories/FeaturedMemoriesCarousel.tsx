@@ -27,7 +27,7 @@ interface FeaturedMemoriesCarouselProps {
 const FEATURED_MEMORIES = MEMORIES.filter((photo) => photo.featured);
 const MEMORY_INDEX_BY_ID = new Map(MEMORIES.map((photo, index) => [photo.id, index]));
 const ROTATIONS = [-3.2, 1.8, -1.1, 2.7, -2.2, 1.2, -2.8, 2.1, -1.5, 3];
-const CAROUSEL_TRANSITION_MS = 700;
+const CAROUSEL_TRANSITION_MS = 450;
 const AUTO_ADVANCE_DELAY_MS = 4450;
 
 function wrappedIndex(index: number, length: number) {
@@ -44,7 +44,7 @@ function preloadPhoto(photo: MemoryPhoto) {
 
 function preloadFeaturedWindow(index: number) {
   if (FEATURED_MEMORIES.length === 0) return;
-  [-1, 0, 1].forEach((offset) => {
+  [-2, -1, 0, 1, 2].forEach((offset) => {
     void preloadPhoto(FEATURED_MEMORIES[wrappedIndex(index + offset, FEATURED_MEMORIES.length)]);
   });
 }
@@ -311,6 +311,7 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
 
       <div
         className="memories-carousel"
+        style={{ "--carousel-transition-duration": `${CAROUSEL_TRANSITION_MS}ms` } as CSSProperties}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onFocusCapture={handleCarouselFocus}
@@ -353,7 +354,7 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
                     width={photo.width}
                     height={photo.height}
                     alt={photo.alt}
-                    loading={Math.abs(offset) <= 1 ? "eager" : "lazy"}
+                    loading="eager"
                     decoding="async"
                     fetchPriority={offset === 0 ? "high" : "low"}
                     draggable={false}
