@@ -25,14 +25,14 @@
 
 .story-progress__step {
   width: clamp(36px, 6vw, 64px);
-  height: 3px;
+  height: 24px;
   padding: 0;
   border: 0;
-  background: rgba(232, 199, 166, 0.18);
+  background: linear-gradient(rgba(232, 199, 166, 0.18), rgba(232, 199, 166, 0.18)) center / 100% 3px no-repeat;
   cursor: pointer;
 }
 
-.story-progress__step--active { background: #c98b73; box-shadow: 0 0 12px rgba(201, 139, 115, 0.3); }
+.story-progress__step--active { background-image: linear-gradient(#c98b73, #c98b73); }
 
 .story-chapter {
   position: relative;
@@ -139,7 +139,7 @@
 .story-navigation button i { font-size: 0.56rem; font-style: normal; letter-spacing: 0.18em; text-transform: uppercase; }
 .story-navigation p { margin: 0; color: rgba(224, 187, 155, 0.42); font-size: 0.48rem; letter-spacing: 0.16em; text-transform: uppercase; }
 
-@keyframes story-page-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes story-page-in { from { opacity: 0.85; } to { opacity: 1; } }
 
 @media (max-width: 680px) {
   .story-experience { gap: 11px; padding: 14px; }

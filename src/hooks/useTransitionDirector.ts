@@ -105,7 +105,9 @@ export function useTransitionDirector({
   }, [issueCommand]);
 
   const exitBooth = useCallback(() => {
-    if (inputLocked.current || (phase !== "inside" && phase !== "focusing" && phase !== "content")) return;
+    if (phase !== "inside" && phase !== "focusing" && phase !== "content") return;
+    if (transitionRef.current.command?.kind === "exit") return;
+    // Exit replaces an in-flight focus/return. Completion IDs reject the old move.
     issueCommand("exit");
     beginExiting();
   }, [beginExiting, issueCommand, phase]);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, type CSSProperties, type Point
 import type { Phase, ObjectId } from "../../../../state/ExperienceContext";
 import { useExperience } from "../../../../state/ExperienceContext";
 import { ARCHIVE_IMAGE_URL } from "./archiveAsset";
+import { preloadSectionImages } from "../../../../utils/sectionPreload";
 import "./InteriorArchiveHub.css";
 
 interface CropDefinition {
@@ -103,17 +104,16 @@ interface InteriorArchiveHubProps {
 export function InteriorArchiveHub({ phase, imageReady, reducedMotion }: InteriorArchiveHubProps) {
   const {
     focusedObject,
-    hoveredObject,
     visitedObjects,
     recenterToken,
     focusObject,
-    setHoveredObject,
   } = useExperience();
   const rootRef = useRef<HTMLDivElement>(null);
   const returnFocusObject = useRef<ObjectId | null>(null);
   const view = useRef({ x: 0, y: 0, zoom: 1 });
   const appliedRecenterToken = useRef(recenterToken);
   const drag = useRef<{ pointerId: number; x: number; y: number; startX: number; startY: number } | null>(null);
+  const viewFrame = useRef<number | null>(null);
   const interactive = phase === "inside" && imageReady;
   const focusedHotspot = useMemo(
     () => HOTSPOTS.find((hotspot) => hotspot.id === focusedObject),
@@ -128,11 +128,12 @@ export function InteriorArchiveHub({ phase, imageReady, reducedMotion }: Interio
     if (phase !== "inside" || !returnFocusObject.current) return;
     const objectId = returnFocusObject.current;
     returnFocusObject.current = null;
-    requestAnimationFrame(() => {
+    const frame = requestAnimationFrame(() => {
       rootRef.current
         ?.querySelector<HTMLButtonElement>(`[data-archive-hotspot="${objectId}"]`)
         ?.focus();
     });
+    return () => cancelAnimationFrame(frame);
   }, [phase]);
 
   const applyView = useCallback((x: number, y: number, zoom: number) => {
@@ -154,6 +155,19 @@ export function InteriorArchiveHub({ phase, imageReady, reducedMotion }: Interio
     root.style.setProperty("--archive-tilt-x", `${safeY * -0.008}deg`);
     root.style.setProperty("--archive-tilt-y", `${safeX * 0.008}deg`);
   }, [focusedHotspot, focusedObject, phase, reducedMotion]);
+
+  const scheduleView = () => {
+    if (viewFrame.current !== null) return;
+    viewFrame.current = requestAnimationFrame(() => {
+      viewFrame.current = null;
+      applyView(view.current.x, view.current.y, view.current.zoom);
+    });
+  };
+
+  useEffect(() => () => {
+    if (viewFrame.current !== null) cancelAnimationFrame(viewFrame.current);
+    viewFrame.current = null;
+  }, [phase]);
 
   const resetView = useCallback((removeInlineValues = false) => {
     view.current = { x: 0, y: 0, zoom: 1 };
@@ -212,20 +226,20 @@ export function InteriorArchiveHub({ phase, imageReady, reducedMotion }: Interio
     }
     view.current.x = x;
     view.current.y = y;
-    applyView(x, y, view.current.zoom);
+    scheduleView();
   };
 
   const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (drag.current?.pointerId !== event.pointerId) return;
     drag.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (!interactive || reducedMotion) return;
     event.preventDefault();
     view.current.zoom = clamp(view.current.zoom - event.deltaY * 0.00006, 1, 1.025);
-    applyView(view.current.x, view.current.y, view.current.zoom);
+    scheduleView();
   };
 
   return (
@@ -259,23 +273,20 @@ export function InteriorArchiveHub({ phase, imageReady, reducedMotion }: Interio
           <span className="archive-lens-reflection" aria-hidden="true" />
           <span className="archive-camera-indicator" aria-hidden="true" />
           {HOTSPOTS.map((hotspot) => {
-            const hovered = hoveredObject === hotspot.id;
             const visited = visitedObjects.includes(hotspot.id);
             return (
               <button
                 key={hotspot.id}
                 type="button"
                 data-archive-hotspot={hotspot.id}
-                className={`archive-hotspot archive-hotspot--${hotspot.id}${hovered ? " archive-hotspot--active" : ""}${visited ? " archive-hotspot--visited" : ""}`}
+                className={`archive-hotspot archive-hotspot--${hotspot.id}${focusedObject === hotspot.id ? " archive-hotspot--active" : ""}${visited ? " archive-hotspot--visited" : ""}`}
                 style={{ left: `${hotspot.left}%`, top: `${hotspot.top}%`, width: `${hotspot.width}%`, height: `${hotspot.height}%` }}
                 aria-label={`Open ${hotspot.label}`}
                 aria-current={focusedObject === hotspot.id ? "true" : undefined}
                 disabled={!interactive}
-                onClick={() => focusObject(hotspot.id)}
-                onPointerEnter={() => interactive && setHoveredObject(hotspot.id)}
-                onPointerLeave={() => interactive && setHoveredObject(null)}
-                onFocus={() => interactive && setHoveredObject(hotspot.id)}
-                onBlur={() => setHoveredObject(null)}
+                onClick={() => { preloadSectionImages(hotspot.id); focusObject(hotspot.id); }}
+                onPointerEnter={() => interactive && preloadSectionImages(hotspot.id)}
+                onFocus={() => interactive && preloadSectionImages(hotspot.id)}
               >
                 <span className="archive-hotspot__art" style={cropStyle(hotspot)} aria-hidden="true" />
                 <span className="archive-hotspot__object" style={cropStyle(hotspot.object, hotspot)} aria-hidden="true" />

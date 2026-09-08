@@ -13,6 +13,8 @@ export function useCurtainAnimation(reducedMotion = false) {
   const dragStart = useRef<{ x: number; progress: number } | null>(null);
   const suppressClickRef = useRef(false);
   const tweenRef = useRef<gsap.core.Tween | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const programmaticRef = useRef(false);
 
   const applyProgress = useCallback((value: number) => {
     const clamped = Math.min(1, Math.max(0, value));
@@ -39,6 +41,9 @@ export function useCurtainAnimation(reducedMotion = false) {
   const closeCurtain = useCallback((duration?: number) => animateTo(0, duration), [animateTo]);
 
   const takeProgrammaticControl = useCallback(() => {
+    programmaticRef.current = true;
+    if (idleTimerRef.current !== null) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = null;
     tweenRef.current?.kill();
     tweenRef.current = null;
     dragStart.current = null;
@@ -46,6 +51,10 @@ export function useCurtainAnimation(reducedMotion = false) {
   }, []);
 
   const handlePointerDown = useCallback((clientX: number) => {
+    programmaticRef.current = false;
+    suppressClickRef.current = false;
+    if (idleTimerRef.current !== null) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = null;
     tweenRef.current?.kill();
     dragStart.current = { x: clientX, progress: progressRef.current };
     setDragging(true);
@@ -62,6 +71,7 @@ export function useCurtainAnimation(reducedMotion = false) {
     };
 
     const handleUp = () => {
+      if (!dragStart.current || programmaticRef.current) return;
       setDragging(false);
       dragStart.current = null;
       animateTo(progressRef.current > 0.5 ? 1 : 0);
@@ -69,9 +79,11 @@ export function useCurtainAnimation(reducedMotion = false) {
 
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
     return () => {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
     };
   }, [dragging, applyProgress, animateTo]);
 
@@ -84,10 +96,18 @@ export function useCurtainAnimation(reducedMotion = false) {
   }, []);
 
   useEffect(() => {
-    if (readyRef.current || dragging) return;
-    const idle = setTimeout(() => applyProgress(0.04), 1800);
-    return () => clearTimeout(idle);
+    if (readyRef.current || dragging || programmaticRef.current) return;
+    idleTimerRef.current = setTimeout(() => {
+      idleTimerRef.current = null;
+      if (!programmaticRef.current) applyProgress(0.04);
+    }, 1800);
+    return () => {
+      if (idleTimerRef.current !== null) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    };
   }, [dragging, applyProgress]);
+
+  useEffect(() => () => { tweenRef.current?.kill(); }, []);
 
   return {
     progressRef,

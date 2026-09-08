@@ -1,6 +1,7 @@
 import { memo, useEffect, type RefObject } from "react";
 import { MEMORIES } from "../../data/memories";
 import { fallBackToOriginal, publicAssetUrl } from "../../utils/publicAssetUrl";
+import { originalImages } from "../../utils/imagePreload";
 
 interface MemoriesArchiveProps {
   experienceRef: RefObject<HTMLDivElement | null>;
@@ -49,6 +50,8 @@ export const MemoriesArchive = memo(function MemoriesArchive({
                 type="button"
                 className="memory-archive__photo"
                 onClick={(event) => onOpen(index, event.currentTarget)}
+                onPointerEnter={() => { void originalImages.preload(publicAssetUrl(photo.src)); }}
+                onFocus={() => { void originalImages.preload(publicAssetUrl(photo.src)); }}
                 aria-label={`Enlarge ${photo.alt}`}
               >
                 <img

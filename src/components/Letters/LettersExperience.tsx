@@ -18,6 +18,7 @@ export function LettersExperience({ onBack }: LettersExperienceProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const envelopeRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const returnIndexRef = useRef<number | null>(null);
+  const readerOpen = selectedIndex !== null;
 
   useLayoutEffect(() => {
     if (selectedIndex === null) {
@@ -29,6 +30,10 @@ export function LettersExperience({ onBack }: LettersExperienceProps) {
     }
 
     letterBackRef.current?.focus({ preventScroll: true });
+  }, [selectedIndex]);
+
+  useLayoutEffect(() => {
+    if (!readerOpen) return;
     const media = gsap.matchMedia();
     media.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.fromTo(sheetRef.current, { y: 8, opacity: 0.7 }, {
@@ -40,7 +45,7 @@ export function LettersExperience({ onBack }: LettersExperienceProps) {
       });
     });
     return () => media.revert();
-  }, [selectedIndex]);
+  }, [readerOpen]);
 
   const closeLetter = useCallback(() => {
     returnIndexRef.current = selectedIndex;

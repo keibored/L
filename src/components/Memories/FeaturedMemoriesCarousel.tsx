@@ -14,6 +14,7 @@ import {
 } from "react";
 import { MEMORIES, type MemoryPhoto } from "../../data/memories";
 import { fallBackToOriginal, publicAssetUrl } from "../../utils/publicAssetUrl";
+import { originalImages, previewImages } from "../../utils/imagePreload";
 
 interface FeaturedMemoriesCarouselProps {
   experienceRef: RefObject<HTMLDivElement | null>;
@@ -28,7 +29,6 @@ const MEMORY_INDEX_BY_ID = new Map(MEMORIES.map((photo, index) => [photo.id, ind
 const ROTATIONS = [-3.2, 1.8, -1.1, 2.7, -2.2, 1.2, -2.8, 2.1, -1.5, 3];
 const CAROUSEL_TRANSITION_MS = 700;
 const AUTO_ADVANCE_DELAY_MS = 4450;
-const decodedPhotos = new Map<string, Promise<void>>();
 
 function wrappedIndex(index: number, length: number) {
   return (index + length) % length;
@@ -39,25 +39,7 @@ function orientation(photo: MemoryPhoto) {
 }
 
 function preloadPhoto(photo: MemoryPhoto) {
-  const cached = decodedPhotos.get(photo.id);
-  if (cached) return cached;
-
-  const image = new Image();
-  image.decoding = "async";
-  const decoded = (async () => {
-    for (const path of [photo.thumbnailSrc, photo.src]) {
-      image.src = publicAssetUrl(path);
-      try {
-        await image.decode();
-        return;
-      } catch {
-        // The second attempt is the original image; a display <img> also has
-        // its own one-shot fallback in case preload support differs.
-      }
-    }
-  })();
-  decodedPhotos.set(photo.id, decoded);
-  return decoded;
+  return previewImages.preload(publicAssetUrl(photo.thumbnailSrc));
 }
 
 function preloadFeaturedWindow(index: number) {
@@ -105,6 +87,7 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
   const mountedRef = useRef(true);
   const swipeStartX = useRef<number | null>(null);
   const didSwipe = useRef(false);
+  const transitionDeadlineRef = useRef(0);
 
   const visibleCards = useMemo(() => FEATURED_MEMORIES
     .map((photo, index) => ({
@@ -115,6 +98,8 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
     .filter(({ offset }) => Math.abs(offset) <= 2), [activeIndex]);
 
   const finishTransition = useCallback(() => {
+    // A transitionend from an interrupted move must not restart autoplay early.
+    if (performance.now() < transitionDeadlineRef.current) return;
     if (transitionTimerRef.current !== null) {
       window.clearTimeout(transitionTimerRef.current);
       transitionTimerRef.current = null;
@@ -128,26 +113,29 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
   ) => {
     if (FEATURED_MEMORIES.length < 2) return;
 
-    if (manual && autoAdvanceTimerRef.current !== null) {
-      window.clearTimeout(autoAdvanceTimerRef.current);
+    if (manual) {
+      if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
       autoAdvanceTimerRef.current = null;
+      setManualResetToken((token) => token + 1);
     }
 
     const target = wrappedIndex(resolveTarget(activeIndexRef.current), FEATURED_MEMORIES.length);
     if (target === activeIndexRef.current) {
-      if (manual) setManualResetToken((token) => token + 1);
       return;
     }
 
     activeIndexRef.current = target;
-    setIsTransitioning(true);
-    setActiveIndex((current) => wrappedIndex(resolveTarget(current), FEATURED_MEMORIES.length));
+    setIsTransitioning(!reducedMotion);
+    setActiveIndex(target);
+    preloadFeaturedWindow(target);
 
     if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
-    transitionTimerRef.current = window.setTimeout(
-      finishTransition,
-      reducedMotion ? 1 : CAROUSEL_TRANSITION_MS,
-    );
+    const duration = reducedMotion ? 0 : CAROUSEL_TRANSITION_MS;
+    transitionDeadlineRef.current = performance.now() + duration;
+    transitionTimerRef.current = window.setTimeout(() => {
+      transitionDeadlineRef.current = 0;
+      finishTransition();
+    }, duration);
   }, [finishTransition, reducedMotion]);
 
   const navigateTo = useCallback((targetIndex: number, manual = true) => {
@@ -258,7 +246,11 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "touch") return;
+    // Cancel a due automatic tick synchronously, before React's effects run.
+    if (autoAdvanceTimerRef.current !== null) window.clearTimeout(autoAdvanceTimerRef.current);
+    autoAdvanceTimerRef.current = null;
+    setManualResetToken((token) => token + 1);
+    if (event.pointerType !== "touch" || !(event.target as HTMLElement).closest(".memory-photo")) return;
     swipeStartX.current = event.clientX;
     didSwipe.current = false;
     setIsDragging(true);
@@ -352,6 +344,8 @@ export const FeaturedMemoriesCarousel = memo(function FeaturedMemoriesCarousel({
                 aria-hidden={!interactive ? true : undefined}
                 aria-current={offset === 0 ? "true" : undefined}
                 tabIndex={interactive ? 0 : -1}
+                onPointerEnter={() => { if (offset === 0) void originalImages.preload(publicAssetUrl(photo.src)); }}
+                onFocus={() => { if (offset === 0) void originalImages.preload(publicAssetUrl(photo.src)); }}
               >
                 <span className="memory-photo__paper">
                   <img

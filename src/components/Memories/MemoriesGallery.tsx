@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MEMORIES, type MemoryPhoto } from "../../data/memories";
 import { publicAssetUrl } from "../../utils/publicAssetUrl";
+import { originalImages } from "../../utils/imagePreload";
 import { FeaturedMemoriesCarousel } from "./FeaturedMemoriesCarousel";
 import { MemoriesArchive } from "./MemoriesArchive";
 import "./MemoriesGallery.css";
@@ -29,6 +30,7 @@ function focusableElements(container: HTMLElement | null) {
 
 export function MemoriesGallery({ onBack }: MemoriesGalleryProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [decodedSource, setDecodedSource] = useState<string | null>(null);
   const [reducedMotion, setReducedMotion] = useState(
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
@@ -71,7 +73,23 @@ export function MemoriesGallery({ onBack }: MemoriesGalleryProps) {
     }
     if (!pendingPhotoFocus.current) return;
     pendingPhotoFocus.current = false;
-    requestAnimationFrame(() => returnFocusRef.current?.focus());
+    returnFocusRef.current?.focus();
+  }, [viewerIndex]);
+
+  useEffect(() => {
+    if (viewerIndex === null) return;
+    let active = true;
+    const source = publicAssetUrl(MEMORIES[viewerIndex].src);
+    void originalImages.preload(source).then((ready) => {
+      if (!active || !ready) return;
+      setDecodedSource(source);
+      // Only the current original and its two neighbors are decoded ahead.
+      [-1, 1].forEach((offset) => {
+        const next = MEMORIES[wrappedIndex(viewerIndex + offset, MEMORIES.length)];
+        void originalImages.preload(publicAssetUrl(next.src));
+      });
+    });
+    return () => { active = false; };
   }, [viewerIndex]);
 
   useEffect(() => {
@@ -117,6 +135,8 @@ export function MemoriesGallery({ onBack }: MemoriesGalleryProps) {
   }, [closeViewer, showNextInViewer, showPreviousInViewer, viewerIndex]);
 
   const viewerPhoto = viewerIndex === null ? null : MEMORIES[viewerIndex];
+  const originalSource = viewerPhoto ? publicAssetUrl(viewerPhoto.src) : "";
+  const originalReady = decodedSource === originalSource || originalImages.isReady(originalSource);
 
   return (
     <div
@@ -163,7 +183,7 @@ export function MemoriesGallery({ onBack }: MemoriesGalleryProps) {
           <figure className={`memory-viewer__figure memory-viewer__figure--${orientation(viewerPhoto)}`}>
             <img
               key={viewerPhoto.id}
-              src={publicAssetUrl(viewerPhoto.src)}
+              src={originalReady ? originalSource : publicAssetUrl(viewerPhoto.thumbnailSrc)}
               width={viewerPhoto.width}
               height={viewerPhoto.height}
               alt={viewerPhoto.alt}

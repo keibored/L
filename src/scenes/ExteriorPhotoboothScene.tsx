@@ -14,10 +14,10 @@ import type { TransitionRef } from "../hooks/useTransitionDirector";
 function ExteriorBoothStage({ children, reducedMotion }: { children: ReactNode; reducedMotion: boolean }) {
   const groupRef = useRef<Group>(null);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!groupRef.current) return;
     const target = ENTRANCE_TUNING.boothScale;
-    const next = reducedMotion ? target : MathUtils.lerp(groupRef.current.scale.x, target, 0.045);
+    const next = reducedMotion ? target : MathUtils.damp(groupRef.current.scale.x, target, 2.76, delta);
     groupRef.current.scale.setScalar(next);
   });
 

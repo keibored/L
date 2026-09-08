@@ -47,7 +47,7 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
   cursor: pointer;
   text-align: left;
-  transition: box-shadow 180ms ease, translate 180ms ease;
+  transition: translate 180ms ease;
 }
 
 .letter-envelope:hover { box-shadow: 0 25px 52px rgba(0, 0, 0, 0.46); translate: 0 -3px; }

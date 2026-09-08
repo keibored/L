@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { STORY_CHAPTERS } from "../../data/story";
 import { publicAssetUrl } from "../../utils/publicAssetUrl";
+import { previewImages } from "../../utils/imagePreload";
 import { ArchiveSection } from "../ContentOverlay/ArchiveSection";
 import "./StoryExperience.css";
 
@@ -11,6 +12,19 @@ interface StoryExperienceProps {
 export function StoryExperience({ onBack }: StoryExperienceProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const swipeStartX = useRef<number | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const restoreContentFocus = useRef(false);
+
+  useLayoutEffect(() => {
+    if (restoreContentFocus.current) contentRef.current?.focus({ preventScroll: true });
+    restoreContentFocus.current = false;
+  }, [activeIndex]);
+
+  useEffect(() => {
+    STORY_CHAPTERS.slice(Math.max(0, activeIndex - 1), activeIndex + 2).forEach((chapter) => {
+      void previewImages.preload(publicAssetUrl(chapter.image));
+    });
+  }, [activeIndex]);
 
   const showPrevious = useCallback(() => {
     setActiveIndex((current) => Math.max(0, current - 1));
@@ -21,6 +35,9 @@ export function StoryExperience({ onBack }: StoryExperienceProps) {
   }, []);
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      restoreContentFocus.current = document.activeElement === contentRef.current;
+    }
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       showPrevious();
@@ -79,7 +96,7 @@ export function StoryExperience({ onBack }: StoryExperienceProps) {
           onPointerCancel={() => { swipeStartX.current = null; }}
         >
           <div className="story-chapter__binding" aria-hidden="true"><i /><i /><i /></div>
-          <div className="story-chapter__content" tabIndex={0} role="region" aria-labelledby={`story-chapter-${chapter.id}`}>
+          <div ref={contentRef} className="story-chapter__content" tabIndex={0} role="region" aria-labelledby={`story-chapter-${chapter.id}`}>
             <p className="story-chapter__number">Chapter {String(activeIndex + 1).padStart(2, "0")}</p>
             {chapter.period && <p className="story-chapter__period">{chapter.period}</p>}
             <h3 id={`story-chapter-${chapter.id}`}>{chapter.title}</h3>
@@ -89,7 +106,7 @@ export function StoryExperience({ onBack }: StoryExperienceProps) {
             </div>
           </div>
           <figure className="story-chapter__image">
-            <img src={publicAssetUrl(chapter.image)} alt={chapter.alt} loading="lazy" decoding="async" />
+            <img src={publicAssetUrl(chapter.image)} width={1536} height={2048} alt={chapter.alt} loading="eager" decoding="async" />
             {chapter.caption && <figcaption>{chapter.caption}</figcaption>}
           </figure>
         </article>

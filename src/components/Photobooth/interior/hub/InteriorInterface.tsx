@@ -35,7 +35,7 @@ export function InteriorInterface({ visible, onExit }: InteriorInterfaceProps) {
         setMenuOpen(false);
         return;
       }
-      if (phase === "content") {
+      if (phase === "content" || phase === "focusing") {
         closeContent();
         return;
       }
@@ -50,8 +50,8 @@ export function InteriorInterface({ visible, onExit }: InteriorInterfaceProps) {
   return (
     <div
       className={`interior-interface interior-interface--${phase}`}
-      aria-hidden={phase === "content" ? true : undefined}
-      inert={phase === "content"}
+      aria-hidden={phase === "content" || phase === "exiting" ? true : undefined}
+      inert={phase === "content" || phase === "exiting"}
     >
       <div className="interaction-counter" aria-live="polite">
         <span>INTERACTIONS</span>

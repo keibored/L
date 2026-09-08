@@ -34,7 +34,6 @@ interface ActiveMotion {
   id: number;
   kind: CameraCommandKind;
   elapsed: number;
-  delay: number;
   poseDuration: number;
   boothDuration: number;
   closeDuration: number;
@@ -45,7 +44,6 @@ interface ActiveMotion {
 
 const ENTER_DURATION = 2.58;
 const EXIT_DURATION = 2.58;
-const ENTER_CAMERA_DELAY = 0.14;
 const EXIT_CURTAIN_CLOSE_DURATION = 0.42;
 const REDUCED_ENTER_DURATION = 0.46;
 const REDUCED_POSE_DURATION = 0.32;
@@ -176,7 +174,6 @@ export function CameraRig({
 
     const anchors = entryAnchorsForViewport(size.width, size.height);
     let destination: Waypoint;
-    let delay = 0;
     let poseDuration = 0;
     let boothDuration = 0;
     let closeDuration = 0;
@@ -185,7 +182,6 @@ export function CameraRig({
 
     if (command.kind === "enter") {
       destination = anchors.interiorHome;
-      delay = reducedMotion ? 0.04 : ENTER_CAMERA_DELAY;
       boothDuration = reducedMotion ? REDUCED_ENTER_DURATION : ENTER_DURATION;
       const liveStart: Waypoint = { position: livePose.position, lookAt: livePose.target, fov: livePose.fov ?? anchors.exteriorHome.fov };
       boothPath = pathFromWaypoints([
@@ -235,7 +231,6 @@ export function CameraRig({
       id: command.id,
       kind: command.kind,
       elapsed: 0,
-      delay,
       poseDuration,
       boothDuration,
       closeDuration,
@@ -315,11 +310,11 @@ export function CameraRig({
     beginMotion();
     const motion = activeMotion.current;
     if (motion) {
-      motion.elapsed += Math.min(delta, 0.05);
+      motion.elapsed += delta;
       if (motion.kind === "enter") {
         curtainProgressRef.current = smoothstep(motion.elapsed / (reducedMotion ? 0.16 : 0.62));
-        const travel = clamp01((motion.elapsed - motion.delay) / motion.boothDuration);
-        if (motion.boothPath && motion.elapsed >= motion.delay) applyPosePath(motion.boothPath, travel);
+        const travel = clamp01(motion.elapsed / motion.boothDuration);
+        if (motion.boothPath) applyPosePath(motion.boothPath, travel);
         applyBoothProgress(travel);
         if (travel >= 1) {
           settleAt(motion.destination);
@@ -369,7 +364,7 @@ export function CameraRig({
       return;
     }
 
-    orbit.current.lerp(orbitTarget.current, reducedMotion ? 1 : 0.1);
+    orbit.current.lerp(orbitTarget.current, reducedMotion ? 1 : 1 - Math.exp(-6.32 * delta));
     const controlsEnabled = phase === "inside";
     const orbitX = controlsEnabled ? orbit.current.x * 5.2 : 0;
     const orbitY = controlsEnabled ? orbit.current.y * 3.2 : 0;

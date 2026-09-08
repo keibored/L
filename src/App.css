@@ -43,6 +43,24 @@
   opacity: 0;
 }
 
+/* Feedback is independent of camera/reader animations and never waits on them. */
+:where(.entry-interface, .interior-interface, .archive-section, .memories-experience, .memory-viewer) button,
+.playlist-player__footer a { touch-action: manipulation; }
+
+:where(.entry-interface, .interior-interface, .archive-section, .memories-experience, .memory-viewer) button:not(:disabled):active {
+  opacity: 0.78;
+  transition: none;
+}
+
+.story-navigation button:hover:not(:disabled),
+.letter-reader__navigation button:hover,
+.memory-viewer__navigation button:hover { color: #fff2df; }
+
+.story-navigation button,
+.letter-reader__navigation button { min-width: 44px; min-height: 44px; }
+
+.story-progress__step:hover { background-image: linear-gradient(#e3ac8b, #e3ac8b); }
+
 .canvas-shell--transition-active .entry-haze,
 .canvas-shell--transition-active .entry-grain,
 .canvas-shell--transition-active .entry-dust span,
@@ -252,8 +270,7 @@ canvas {
   cursor: pointer;
   pointer-events: auto;
   transition:
-    color 0.42s ease,
-    transform 0.42s cubic-bezier(0.2, 0.75, 0.25, 1);
+    transform 180ms cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 
 .entry-button:hover,
@@ -291,7 +308,6 @@ canvas {
   font-size: 0.72rem;
   font-style: italic;
   letter-spacing: 0.045em;
-  transition: color 0.42s ease;
 }
 
 .entry-button:hover .entry-button__support,

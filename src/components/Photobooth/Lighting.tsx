@@ -31,7 +31,7 @@ export function Lighting({ active, attention, revealing, reducedMotion, strength
     const reveal = revealing
       ? smoothReveal(time, reducedMotion ? 0 : 0.35, reducedMotion ? 0.45 : 2.55)
       : 1;
-    const flickerWindow = !reducedMotion && time > 1.05 && time < 1.48;
+    const flickerWindow = revealing && !reducedMotion && time > 1.05 && time < 1.48;
     const flicker = flickerWindow
       ? 1 - Math.sin(((time - 1.05) / 0.43) * Math.PI) * 0.22
       : 1;
