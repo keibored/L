@@ -15,6 +15,7 @@ import { ArchivePortal } from "../components/Photobooth/ArchivePortal";
 import { InteriorArchiveHub } from "../components/Photobooth/interior/hub/InteriorArchiveHub";
 import { useInteriorAssetsPreload } from "../components/Photobooth/interior/hub/archiveAsset";
 import { ExteriorPhotoboothScene } from "./ExteriorPhotoboothScene";
+import { preloadSectionImages } from "../utils/sectionPreload";
 
 const EXTERIOR_BACKGROUND = new Color("#080706");
 const INTERIOR_BACKGROUND = new Color("#160b09");
@@ -125,8 +126,10 @@ export function PhotoboothScene() {
 
   useLayoutEffect(() => {
     if (phase !== "focusing") return;
-    if (focusedObject) focusCamera(focusedObject);
-    else returnCamera();
+    if (focusedObject) {
+      focusCamera(focusedObject);
+      preloadSectionImages(focusedObject);
+    } else returnCamera();
   }, [focusCamera, focusedObject, phase, returnCamera]);
 
   const handleCurtainClick = useCallback(() => {
@@ -143,9 +146,9 @@ export function PhotoboothScene() {
   return (
     <div ref={shellRef} className={`canvas-shell canvas-shell--${phase}`} style={entranceStyle}>
       <Canvas
-        // Keep the last booth frame behind the paper; redraw only for changes
-        // such as resizing, then resume continuous motion before returning.
-        frameloop={phase === "content" ? "demand" : "always"}
+        // Warm shaders first. Covered views need only resize/prop redraws;
+        // entering, focusing, returning and exiting resume the loop immediately.
+        frameloop={canvasReady && assetsReady && (phase === "inside" || phase === "content") ? "demand" : "always"}
         shadows
         dpr={[1, 1.65]}
         performance={{ min: 0.55 }}

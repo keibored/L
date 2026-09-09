@@ -116,6 +116,7 @@ export function CameraRig({
   const activeMotion = useRef<ActiveMotion | null>(null);
   const handledCommand = useRef(0);
   const hasInit = useRef(false);
+  const settledViewport = useRef({ width: size.width, height: size.height });
   const pointers = useRef(new Map<number, Vector2>());
   const previousPointer = useRef<Vector2 | null>(null);
   const pinchDistance = useRef<number | null>(null);
@@ -158,7 +159,7 @@ export function CameraRig({
 
   const beginMotion = () => {
     const command = transitionRef.current.command;
-    if (!command || command.id === handledCommand.current) return;
+    if (!command || command.id === handledCommand.current) return false;
     handledCommand.current = command.id;
     const livePose: CameraPose = {
       position: camera.position.toArray() as [number, number, number],
@@ -201,19 +202,19 @@ export function CameraRig({
             ? focusAnchors.playlistFocus
             : focusAnchors.storyFocus;
       const distance = camera.position.distanceTo(tempPosition.set(...destination.position));
-      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(distance / 2.25, 1.25, 2.1);
+      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.6 + distance * 0.05, 0.7, 0.95);
       posePath = curvedPosePath(livePose, destination);
     } else if (command.kind === "return") {
       destination = anchors.interiorHome;
       const distance = camera.position.distanceTo(tempPosition.set(...destination.position));
-      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.68 + distance * 0.16, 0.72, 1.2);
+      poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.5 + distance * 0.035, 0.5, 0.75);
       posePath = curvedPosePath(livePose, destination);
     } else {
       destination = anchors.exteriorHome;
       const needsReturn = !samePose(camera.position, renderedTarget.current, anchors.interiorHome);
       if (needsReturn) {
         const distance = camera.position.distanceTo(tempPosition.set(...anchors.interiorHome.position));
-        poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.7 + distance * 0.15, 0.75, 1.2);
+        poseDuration = reducedMotion ? REDUCED_POSE_DURATION : MathUtils.clamp(0.5 + distance * 0.035, 0.5, 0.75);
         posePath = curvedPosePath(livePose, anchors.interiorHome);
       }
       boothDuration = reducedMotion ? REDUCED_ENTER_DURATION : EXIT_DURATION;
@@ -238,6 +239,7 @@ export function CameraRig({
       boothPath,
       destination,
     };
+    return true;
   };
 
   useEffect(() => {
@@ -299,18 +301,25 @@ export function CameraRig({
   }, [gl, phase, transitionRef]);
 
   useFrame((_, delta) => {
-    if (!hasInit.current) {
+    const viewportChanged = settledViewport.current.width !== size.width || settledViewport.current.height !== size.height;
+    const resting = !transitionRef.current.active && (phase === "outside" || phase === "inside");
+    if (!hasInit.current || (viewportChanged && resting)) {
       const initial = phase === "inside"
         ? interiorWaypointForViewport(size.width, size.height)
         : exteriorWaypointForViewport(size.width, size.height);
       settleAt(initial);
       hasInit.current = true;
+      // Resize can be a single demand frame. Reframe idle views now, while an
+      // in-flight camera path keeps its live pose until it reaches a rest state.
+      settledViewport.current = { width: size.width, height: size.height };
     }
 
-    beginMotion();
+    const startedMotion = beginMotion();
     const motion = activeMotion.current;
     if (motion) {
-      motion.elapsed += delta;
+      // A demand frame may include minutes of covered/idle time. A new command
+      // starts at the live pose; only subsequent frame deltas advance its path.
+      motion.elapsed += startedMotion ? 0 : delta;
       if (motion.kind === "enter") {
         curtainProgressRef.current = smoothstep(motion.elapsed / (reducedMotion ? 0.16 : 0.62));
         const travel = clamp01(motion.elapsed / motion.boothDuration);
